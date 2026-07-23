@@ -25,13 +25,6 @@
     "db:studio": "drizzle-kit studio",
     "db:push": "drizzle-kit push"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "argon2",
-      "msgpackr-extract",
-      "@scarf/scarf"
-    ]
-  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",
     "@aws-sdk/s3-request-presigner": "^3.1093.0",
