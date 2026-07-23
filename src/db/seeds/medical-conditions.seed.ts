@@ -3,7 +3,9 @@ import postgres from 'postgres';
 import { medicalConditions } from '../schema/medical';
 import { config } from 'dotenv';
 
-config({ path: '.env.development.local' });
+if (process.env.NODE_ENV !== 'production') {
+  config({ path: '.env.development.local' });
+}
 
 const CONDITIONS = [
   { name: "Addison's Disease", category: 'DISEASE' as const, sortOrder: 1 },
