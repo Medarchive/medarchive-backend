@@ -4,9 +4,7 @@ WORKDIR /app
 
 FROM base AS deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile \
-    --config.minimum-release-age=0 \
-    --config.only-built-dependencies=argon2,msgpackr-extract,esbuild,unrs-resolver
+RUN pnpm install --frozen-lockfile --config.minimum-release-age=0
 
 FROM base AS build
 COPY --from=deps /app/node_modules ./node_modules
@@ -15,9 +13,7 @@ RUN pnpm build
 
 FROM base AS prod-deps
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile --prod \
-    --config.minimum-release-age=0 \
-    --config.only-built-dependencies=argon2,msgpackr-extract
+RUN pnpm install --frozen-lockfile --prod --config.minimum-release-age=0
 
 FROM node:22-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
