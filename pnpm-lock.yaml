@@ -3,12 +3,6 @@ lockfileVersion: '9.0'
 settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
-  onlyBuiltDependencies:
-    - '@scarf/scarf'
-    - argon2
-    - esbuild
-    - msgpackr-extract
-    - unrs-resolver
 
 importers:
 
