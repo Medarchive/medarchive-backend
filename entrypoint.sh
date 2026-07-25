@@ -2,10 +2,10 @@
 set -e
 
 echo "Running database migrations..."
-pnpm db:migrate
+node_modules/.bin/drizzle-kit migrate
 
 echo "Seeding database..."
-NODE_ENV=production pnpm seed:prod
+NODE_ENV=production node dist/db/seeds/medical-conditions.seed.js
 
 echo "Starting server..."
 exec node dist/main
