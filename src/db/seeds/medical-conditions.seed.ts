@@ -1,6 +1,6 @@
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
-import { medicalConditions } from '../schema/medical';
+import { medicalConditions } from '../schema/medical.js';
 import { config } from 'dotenv';
 
 if (process.env.NODE_ENV !== 'production') {
