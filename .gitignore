@@ -1,7 +1,14 @@
 # compiled output
 /dist
+/dist2
 /node_modules
 /build
+
+# drizzle local build artifacts
+drizzle.config.d.ts
+drizzle.config.js
+drizzle.config.js.map
+tsconfig.build.tsbuildinfo
 
 # Logs
 logs
