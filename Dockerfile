@@ -11,19 +11,16 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN pnpm build
 
-FROM base AS prod-deps
-COPY package.json pnpm-lock.yaml pnpm.yaml ./
-RUN pnpm install --frozen-lockfile --prod --config.minimum-release-age=0
-
 FROM node:22-alpine AS runner
 RUN corepack enable && corepack prepare pnpm@latest --activate
 WORKDIR /app
 
-COPY --from=prod-deps /app/node_modules ./node_modules
-# drizzle-kit is a devDep but needed for migrations at runtime
+COPY package.json pnpm-lock.yaml pnpm.yaml ./
 COPY --from=deps /app/node_modules ./node_modules
+RUN pnpm prune --prod
+
 COPY --from=build /app/dist ./dist
-COPY package.json pnpm-lock.yaml drizzle.config.ts ./
+COPY drizzle.config.ts ./
 COPY drizzle ./drizzle
 COPY src/db/schema ./src/db/schema
 
