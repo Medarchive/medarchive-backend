@@ -8,7 +8,6 @@ COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm build
-RUN pnpm prune --prod
 
 FROM node:22-alpine AS runner
 RUN addgroup --system --gid 1001 nodejs \
