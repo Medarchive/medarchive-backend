@@ -100,15 +100,6 @@
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
   },
-  "pnpm": {
-    "onlyBuiltDependencies": [
-      "@scarf/scarf",
-      "argon2",
-      "esbuild",
-      "msgpackr-extract",
-      "unrs-resolver"
-    ]
-  },
   "jest": {
     "moduleFileExtensions": [
       "js",
