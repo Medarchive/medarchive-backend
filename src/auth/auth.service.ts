@@ -24,6 +24,7 @@ import {
   refreshTokens,
 } from '../db/schema';
 import { MailService } from '../mail/mail.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import { setContextUserId } from '../common/context/request.context';
 import type { RegisterDto } from './dto/register.dto';
 import type { AuthTokens, JwtPayload } from './auth.types';
@@ -48,6 +49,7 @@ export class AuthService {
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -153,6 +155,7 @@ export class AuthService {
 
     setContextUserId(user.id);
     this.logger.log(`Login success userId=${user.id}`);
+    this.activityLog.log(user.id, 'LOGIN');
 
     return this.issueTokens(user, wallet?.address ?? null);
   }

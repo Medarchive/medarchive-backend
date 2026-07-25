@@ -7,6 +7,7 @@ import { uuidv7 } from 'uuidv7';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { wallets } from '../db/schema';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { AddWalletDto } from './dto/add-wallet.dto';
 
 const WALLET_NONCE_TTL_MS = 10 * 60 * 1000;
@@ -21,6 +22,7 @@ export class WalletService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async add(userId: string, dto: AddWalletDto) {
@@ -44,6 +46,7 @@ export class WalletService {
     const nonce = uuidv7();
     await this.cache.set(this.nonceKey(userId), nonce, WALLET_NONCE_TTL_MS);
 
+    this.activityLog.log(userId, 'WALLET_LINKED', { address: dto.address, network });
     return { wallet, nonce };
   }
 
@@ -72,6 +75,7 @@ export class WalletService {
       .where(eq(wallets.id, wallet.id))
       .returning();
 
+    this.activityLog.log(userId, 'WALLET_VERIFIED', { address: wallet.address });
     return updated;
   }
 
@@ -87,6 +91,23 @@ export class WalletService {
     return { ...wallet, balance };
   }
 
+  async getForDashboard(userId: string) {
+    const wallet = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, userId),
+    });
+
+    if (!wallet) return null;
+
+    const balance = await this.fetchBalance(wallet.address, wallet.network);
+
+    return {
+      address: wallet.address,
+      network: wallet.network,
+      balance,
+      verifiedAt: wallet.verifiedAt,
+    };
+  }
+
   async remove(userId: string) {
     const [deleted] = await this.db
       .delete(wallets)
@@ -94,6 +115,8 @@ export class WalletService {
       .returning();
 
     if (!deleted) throw new NotFoundException('No wallet linked to this account');
+
+    this.activityLog.log(userId, 'WALLET_REMOVED');
   }
 
   private verifyStellarSignature(publicKey: string, message: string, signature: string): boolean {

@@ -6,6 +6,7 @@ import type { Database } from '../db/db.module';
 import { healthRecords } from '../db/schema';
 import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { SortOrder } from '../common/dto/pagination.dto';
 import type { PaginationDto } from '../common/dto/pagination.dto';
@@ -18,6 +19,7 @@ export class HealthRecordsService {
     @Inject(DB) private readonly db: Database,
     private readonly s3: S3Service,
     private readonly dashboard: DashboardService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async upload(userId: string, file: Express.Multer.File, dto: CreateHealthRecordDto) {
@@ -49,6 +51,7 @@ export class HealthRecordsService {
       .returning();
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'HEALTH_RECORD_UPLOADED', { recordId: record.id, title: dto.title, recordType: dto.recordType });
     return record;
   }
 
@@ -128,5 +131,6 @@ export class HealthRecordsService {
     ]);
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'HEALTH_RECORD_DELETED', { recordId: id, title: record.title });
   }
 }

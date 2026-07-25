@@ -4,6 +4,7 @@ import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { patientMedications } from '../db/schema';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { CreateMedicationDto } from './dto/create-medication.dto';
 import type { UpdateMedicationDto } from './dto/update-medication.dto';
 
@@ -12,6 +13,7 @@ export class MedicationsService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly dashboard: DashboardService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async create(userId: string, dto: CreateMedicationDto) {
@@ -21,6 +23,7 @@ export class MedicationsService {
       .returning();
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'MEDICATION_ADDED', { medicationId: medication.id, name: dto.name });
     return medication;
   }
 
@@ -41,6 +44,7 @@ export class MedicationsService {
     if (!updated) throw new NotFoundException('Medication not found');
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'MEDICATION_UPDATED', { medicationId: id });
     return updated;
   }
 
@@ -53,5 +57,6 @@ export class MedicationsService {
     if (!deleted) throw new NotFoundException('Medication not found');
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'MEDICATION_DELETED', { medicationId: id });
   }
 }

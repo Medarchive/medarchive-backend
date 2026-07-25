@@ -12,6 +12,7 @@ import {
   emergencyContacts,
 } from '../db/schema';
 import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service';
+import { WalletService } from '../wallet/wallet.service';
 
 export const dashboardCacheKey = (userId: string) => `dashboard:${userId}`;
 const DASHBOARD_CACHE_TTL_MS = 5 * 60 * 1000;
@@ -22,6 +23,7 @@ export class DashboardService {
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly s3: S3Service,
+    private readonly wallet: WalletService,
   ) {}
 
   async get(userId: string) {
@@ -38,7 +40,7 @@ export class DashboardService {
   }
 
   private async aggregate(userId: string) {
-    const [profile, conditions, recentRecords, careId, contacts] = await Promise.all([
+    const [profile, conditions, recentRecords, careId, contacts, wallet] = await Promise.all([
       this.db.query.userMedicalProfile.findFirst({
         where: eq(userMedicalProfile.userId, userId),
       }),
@@ -58,6 +60,7 @@ export class DashboardService {
         where: eq(emergencyContacts.userId, userId),
         orderBy: emergencyContacts.createdAt,
       }),
+      this.wallet.getForDashboard(userId),
     ]);
 
     const now = Date.now();
@@ -88,6 +91,7 @@ export class DashboardService {
       recentRecords: refreshedRecords,
       careId: careId ?? null,
       emergencyContacts: contacts,
+      wallet,
     };
   }
 }

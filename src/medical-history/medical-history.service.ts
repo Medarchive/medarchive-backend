@@ -17,6 +17,7 @@ import {
 } from '../db/schema';
 import type { JwtPayload } from '../auth/auth.types';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { MedicalHistoryDto } from './dto/medical-history.dto';
 import type { UpdateMedicalProfileDto } from './dto/medical-profile.dto';
 
@@ -30,6 +31,7 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly dashboard: DashboardService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async onApplicationBootstrap() {
@@ -69,6 +71,7 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
     });
 
     await this.dashboard.invalidate(requestor.sub);
+    this.activityLog.log(requestor.sub, 'CONDITIONS_UPDATED');
     return this.findAll(requestor.sub);
   }
 
@@ -97,6 +100,7 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
     });
 
     await this.dashboard.invalidate(requestor.sub);
+    this.activityLog.log(requestor.sub, 'CONDITIONS_UPDATED');
     return this.findAll(requestor.sub);
   }
 
@@ -182,6 +186,7 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
       });
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'MEDICAL_PROFILE_UPDATED');
     return this.getMedicalProfile(userId);
   }
 

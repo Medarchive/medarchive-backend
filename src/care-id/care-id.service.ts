@@ -7,6 +7,7 @@ import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { patientCareIds, wallets, userPersonalInfo } from '../db/schema';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 
 const SHARE_LINK_TTL_MS = 24 * 60 * 60 * 1000;
 
@@ -16,6 +17,7 @@ export class CareIdService {
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly dashboard: DashboardService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async getOrCreate(userId: string) {
@@ -31,6 +33,7 @@ export class CareIdService {
       .returning();
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'CARE_ID_GENERATED', { careId: created.careId });
     return created;
   }
 
@@ -50,6 +53,7 @@ export class CareIdService {
     const token = randomBytes(32).toString('hex');
     await this.cache.set(`care-id:share:${token}`, userId, SHARE_LINK_TTL_MS);
 
+    this.activityLog.log(userId, 'SHARE_LINK_GENERATED');
     return { token, expiresInHours: 24 };
   }
 

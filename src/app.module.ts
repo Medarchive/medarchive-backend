@@ -21,6 +21,7 @@ import { EmergencyContactsModule } from './emergency-contacts/emergency-contacts
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
 import { MedicationsModule } from './medications/medications.module';
+import { ActivityLogModule } from './activity-log/activity-log.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { env } from './config/env';
 
@@ -65,6 +66,7 @@ import { env } from './config/env';
     DashboardModule,
     WalletModule,
     MedicationsModule,
+    ActivityLogModule,
   ],
   providers: [
     {

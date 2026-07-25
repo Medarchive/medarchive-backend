@@ -4,6 +4,7 @@ import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { emergencyContacts } from '../db/schema';
 import { DashboardService } from '../dashboard/dashboard.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
 
@@ -12,6 +13,7 @@ export class EmergencyContactsService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly dashboard: DashboardService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   async create(userId: string, dto: CreateEmergencyContactDto) {
@@ -21,6 +23,7 @@ export class EmergencyContactsService {
       .returning();
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_ADDED', { contactId: contact.id });
     return contact;
   }
 
@@ -41,6 +44,7 @@ export class EmergencyContactsService {
     if (!updated) throw new NotFoundException('Contact not found');
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_UPDATED', { contactId: id });
     return updated;
   }
 
@@ -53,5 +57,6 @@ export class EmergencyContactsService {
     if (!deleted) throw new NotFoundException('Contact not found');
 
     await this.dashboard.invalidate(userId);
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_DELETED', { contactId: id });
   }
 }

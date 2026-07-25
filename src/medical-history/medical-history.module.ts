@@ -4,9 +4,10 @@ import { MedicalConditionsController } from './medical-conditions.controller';
 import { MedicalProfileController } from './medical-profile.controller';
 import { MedicalHistoryService } from './medical-history.service';
 import { DashboardModule } from '../dashboard/dashboard.module';
+import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
-  imports: [DashboardModule],
+  imports: [DashboardModule, ActivityLogModule],
   controllers: [MedicalHistoryController, MedicalConditionsController, MedicalProfileController],
   providers: [MedicalHistoryService],
   exports: [MedicalHistoryService],

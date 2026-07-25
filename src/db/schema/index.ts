@@ -5,3 +5,4 @@ export * from './health-records';
 export * from './care-id';
 export * from './emergency-contacts';
 export * from './medications';
+export * from './activity-logs';
