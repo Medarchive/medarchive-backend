@@ -38,11 +38,9 @@ export class ApiKeyGuard implements CanActivate {
       .digest('hex');
 
     const expectedBuf = Buffer.from(expected, 'hex');
-    const receivedBuf = Buffer.alloc(expectedBuf.length);
+    const receivedBuf = Buffer.from(signature, 'hex');
 
-    try {
-      Buffer.from(signature, 'hex').copy(receivedBuf);
-    } catch {
+    if (receivedBuf.length !== expectedBuf.length) {
       throw new UnauthorizedException('Invalid signature format');
     }
 

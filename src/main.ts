@@ -13,7 +13,6 @@ import {
   LoginWithTokensData,
   OtpResendData,
   PaginatedUsersData,
-  PaginationMetaData,
   PatientProfileData,
   ProviderProfileData,
   RegisterResponseData,
@@ -48,7 +47,9 @@ async function bootstrap() {
   app.use(compression());
 
   app.enableCors({
-    origin: env().ALLOWED_ORIGINS.split(',').map((o) => o.trim()),
+    origin: env()
+      .ALLOWED_ORIGINS.split(',')
+      .map((o) => o.trim()),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: [
@@ -75,7 +76,10 @@ async function bootstrap() {
     new LoggingInterceptor(),
     new TransformInterceptor(reflector),
   );
-  app.useGlobalFilters(new AllExceptionsFilter(), new ThrottlerExceptionFilter());
+  app.useGlobalFilters(
+    new AllExceptionsFilter(),
+    new ThrottlerExceptionFilter(),
+  );
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -88,12 +92,23 @@ async function bootstrap() {
   if (env().NODE_ENV !== 'production') {
     const swaggerConfig = new DocumentBuilder()
       .setTitle('MedArchive Africa')
-      .setDescription('Decentralized EHR — patient-owned encrypted health records on Stellar')
+      .setDescription(
+        'Decentralized EHR — patient-owned encrypted health records on Stellar',
+      )
       .setVersion('1.0')
-      .addBearerAuth({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' }, 'jwt')
+      .addBearerAuth(
+        { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+        'jwt',
+      )
       .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-key' }, 'api-key')
-      .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-signature' }, 'api-signature')
-      .addApiKey({ type: 'apiKey', in: 'header', name: 'x-api-timestamp' }, 'api-timestamp')
+      .addApiKey(
+        { type: 'apiKey', in: 'header', name: 'x-api-signature' },
+        'api-signature',
+      )
+      .addApiKey(
+        { type: 'apiKey', in: 'header', name: 'x-api-timestamp' },
+        'api-timestamp',
+      )
       .build();
 
     const document = SwaggerModule.createDocument(app, swaggerConfig, {
@@ -120,7 +135,7 @@ async function bootstrap() {
 
   const port = env().APP_PORT;
   await app.listen(port);
-  logger.log(`MedArchive API running on port ${port} [${env().NODE_ENV}]`);
+  console.log(`MedArchive API running on port ${port} [${env().NODE_ENV}]`);
 }
 
 bootstrap();
