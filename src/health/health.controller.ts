@@ -1,15 +1,13 @@
-import { Controller, Get, Inject, UseGuards } from '@nestjs/common';
+import { Controller, Get, Inject } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiSecurity } from '@nestjs/swagger';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { sql } from 'drizzle-orm';
 
 @ApiTags('health')
 @ApiSecurity('api-key')
-@UseGuards(ApiKeyGuard)
 @Controller('health')
 export class HealthController {
   constructor(

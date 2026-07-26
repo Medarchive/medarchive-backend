@@ -23,6 +23,7 @@ import { WalletModule } from './wallet/wallet.module';
 import { MedicationsModule } from './medications/medications.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
+import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
 
 @Module({
@@ -69,6 +70,10 @@ import { env } from './config/env';
     ActivityLogModule,
   ],
   providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ApiKeyGuard,
+    },
     {
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
