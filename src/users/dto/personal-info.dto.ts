@@ -1,5 +1,6 @@
 import {
   IsDateString,
+  IsEnum,
   IsISO31661Alpha2,
   IsOptional,
   IsString,
@@ -8,7 +9,17 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export enum Gender {
+  MALE = 'MALE',
+  FEMALE = 'FEMALE',
+}
+
 export class PersonalInfoDto {
+  @ApiPropertyOptional({ enum: Gender, example: 'MALE' })
+  @IsOptional()
+  @IsEnum(Gender)
+  gender?: Gender;
+
   @ApiProperty({ example: 'John', minLength: 1 })
   @IsString()
   @MinLength(1)

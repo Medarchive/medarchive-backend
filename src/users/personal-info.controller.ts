@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Patch,
@@ -35,6 +36,24 @@ import type { JwtPayload } from '../auth/auth.types';
 export class PersonalInfoController {
   constructor(private readonly personalInfoService: PersonalInfoService) {}
 
+  @Get()
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Personal information fetched successfully')
+  @ApiOperation({ summary: 'Get personal information' })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  findOne(@CurrentUser() user: JwtPayload) {
+    return this.personalInfoService.findOne(user);
+  }
+
   @Post()
   @Version('1')
   @ResponseMessage('Personal information submitted successfully')
@@ -47,16 +66,7 @@ export class PersonalInfoController {
   @ApiResponse({
     status: 201,
     description: 'Personal information created.',
-    schema: {
-      allOf: [
-        { $ref: getSchemaPath(ApiSuccessResponse) },
-        {
-          properties: {
-            message: { example: 'Personal information submitted successfully' },
-          },
-        },
-      ],
-    },
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
   })
   @ApiResponse({
     status: 400,
@@ -90,16 +100,7 @@ export class PersonalInfoController {
   @ApiResponse({
     status: 200,
     description: 'Personal information updated.',
-    schema: {
-      allOf: [
-        { $ref: getSchemaPath(ApiSuccessResponse) },
-        {
-          properties: {
-            message: { example: 'Personal information updated successfully' },
-          },
-        },
-      ],
-    },
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
   })
   @ApiResponse({
     status: 400,

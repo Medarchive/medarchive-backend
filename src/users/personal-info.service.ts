@@ -7,13 +7,28 @@ import {
 import { eq } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { userPersonalInfo } from '../db/schema';
+import { userPersonalInfo, users } from '../db/schema';
 import type { PersonalInfoDto } from './dto/personal-info.dto';
 import type { JwtPayload } from '../auth/auth.types';
 
 @Injectable()
 export class PersonalInfoService {
   constructor(@Inject(DB) private readonly db: Database) {}
+
+  async findOne(requestor: JwtPayload) {
+    const [info, user] = await Promise.all([
+      this.db.query.userPersonalInfo.findFirst({
+        where: eq(userPersonalInfo.userId, requestor.sub),
+      }),
+      this.db.query.users.findFirst({
+        where: eq(users.id, requestor.sub),
+        columns: { gender: true },
+      }),
+    ]);
+
+    if (!info) return null;
+    return { ...info, gender: user?.gender ?? null };
+  }
 
   async create(requestor: JwtPayload, dto: PersonalInfoDto) {
     const existing = await this.db.query.userPersonalInfo.findFirst({
@@ -22,15 +37,25 @@ export class PersonalInfoService {
 
     if (existing)
       throw new ConflictException(
-        'Personal information already submitted. Use PUT /personal-info to update.',
+        'Personal information already submitted. Use PATCH /personal-info to update.',
       );
 
-    const [created] = await this.db
-      .insert(userPersonalInfo)
-      .values({ userId: requestor.sub, ...dto })
-      .returning();
+    const { gender, ...infoDto } = dto;
 
-    return created;
+    const [created] = await Promise.all([
+      this.db
+        .insert(userPersonalInfo)
+        .values({ userId: requestor.sub, ...infoDto })
+        .returning(),
+      gender
+        ? this.db
+            .update(users)
+            .set({ gender, updatedAt: new Date() })
+            .where(eq(users.id, requestor.sub))
+        : Promise.resolve(),
+    ]);
+
+    return { ...created[0], gender: gender ?? null };
   }
 
   async update(requestor: JwtPayload, dto: Partial<PersonalInfoDto>) {
@@ -43,12 +68,28 @@ export class PersonalInfoService {
         'Personal information not found. Use POST /personal-info to create it first.',
       );
 
-    const [updated] = await this.db
-      .update(userPersonalInfo)
-      .set({ ...dto, updatedAt: new Date() })
-      .where(eq(userPersonalInfo.userId, requestor.sub))
-      .returning();
+    const { gender, ...infoDto } = dto;
 
-    return updated;
+    const [updated, user] = await Promise.all([
+      this.db
+        .update(userPersonalInfo)
+        .set({ ...infoDto, updatedAt: new Date() })
+        .where(eq(userPersonalInfo.userId, requestor.sub))
+        .returning()
+        .then(([r]) => r),
+      gender
+        ? this.db
+            .update(users)
+            .set({ gender, updatedAt: new Date() })
+            .where(eq(users.id, requestor.sub))
+            .returning({ gender: users.gender })
+            .then(([r]) => r)
+        : this.db.query.users.findFirst({
+            where: eq(users.id, requestor.sub),
+            columns: { gender: true },
+          }),
+    ]);
+
+    return { ...updated, gender: user?.gender ?? null };
   }
 }
