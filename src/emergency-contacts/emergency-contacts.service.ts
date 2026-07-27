@@ -2,9 +2,10 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { emergencyContacts } from '../db/schema';
+import { emergencyContacts, users } from '../db/schema';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { MailService } from '../mail/mail.service';
 import type { CreateEmergencyContactDto } from './dto/create-emergency-contact.dto';
 import type { UpdateEmergencyContactDto } from './dto/update-emergency-contact.dto';
 
@@ -14,6 +15,7 @@ export class EmergencyContactsService {
     @Inject(DB) private readonly db: Database,
     private readonly dashboard: DashboardService,
     private readonly activityLog: ActivityLogService,
+    private readonly mail: MailService,
   ) {}
 
   async create(userId: string, dto: CreateEmergencyContactDto) {
@@ -24,6 +26,12 @@ export class EmergencyContactsService {
 
     await this.dashboard.invalidate(userId);
     this.activityLog.log(userId, 'EMERGENCY_CONTACT_ADDED', { contactId: contact.id });
+
+    if (dto.email) {
+      const patient = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
+      if (patient) this.mail.sendEmergencyContactAdded(dto.email, `${dto.firstName} ${dto.lastName}`, patient.fullName).catch(() => {});
+    }
+
     return contact;
   }
 

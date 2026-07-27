@@ -23,6 +23,8 @@ import { ResendOtpDto } from './dto/resend-otp.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { WalletNonceDto, WalletLoginDto } from './dto/wallet-login.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
@@ -159,6 +161,31 @@ export class AuthController {
   })
   resendOtp(@Body() dto: ResendOtpDto) {
     return this.authService.resendOtp(dto.email);
+  }
+
+  @Post('forgot-password')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { limit: 3, ttl: 60_000 } })
+  @ResponseMessage('If that email exists, a reset link has been sent')
+  @ApiOperation({ summary: 'Request password reset', description: 'Sends a reset link to the email if it exists. Always returns success to prevent enumeration.' })
+  @ApiBody({ type: ForgotPasswordDto })
+  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto.email);
+  }
+
+  @Post('reset-password')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @ResponseMessage('Password reset successfully')
+  @ApiOperation({ summary: 'Reset password with token', description: 'Uses the token from the reset email to set a new password. Token expires in 15 minutes.' })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
+  @ApiResponse({ status: 400, description: 'Invalid or expired token.', type: ApiErrorResponse })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 
   @Post('login')

@@ -3,10 +3,11 @@ import { and, desc, eq, gte, ilike, lte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { healthRecords, healthRecordFiles } from '../db/schema';
+import { healthRecords, healthRecordFiles, users } from '../db/schema';
 import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service';
 import { DashboardService } from '../dashboard/dashboard.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { MailService } from '../mail/mail.service';
 import type { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { SortOrder } from '../common/dto/pagination.dto';
 import { buildMeta } from '../common/dto/pagination.dto';
@@ -21,6 +22,7 @@ export class HealthRecordsService {
     private readonly s3: S3Service,
     private readonly dashboard: DashboardService,
     private readonly activityLog: ActivityLogService,
+    private readonly mail: MailService,
   ) {}
 
   async upload(userId: string, files: Express.Multer.File[], dto: CreateHealthRecordDto) {
@@ -75,6 +77,10 @@ export class HealthRecordsService {
 
     await this.dashboard.invalidate(userId);
     this.activityLog.log(userId, 'HEALTH_RECORD_UPLOADED', { recordId: record.id, title: dto.title, recordType: dto.recordType });
+
+    const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (user) this.mail.sendHealthRecordUploaded(user.email, user.fullName, dto.title, dto.recordType).catch(() => {});
+
     return this.findOne(userId, record.id);
   }
 

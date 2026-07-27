@@ -6,8 +6,9 @@ import { Horizon, Keypair, StrKey } from '@stellar/stellar-sdk';
 import { uuidv7 } from 'uuidv7';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { wallets } from '../db/schema';
+import { wallets, users } from '../db/schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { MailService } from '../mail/mail.service';
 import type { AddWalletDto } from './dto/add-wallet.dto';
 
 const WALLET_NONCE_TTL_MS = 10 * 60 * 1000;
@@ -23,6 +24,7 @@ export class WalletService {
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly activityLog: ActivityLogService,
+    private readonly mail: MailService,
   ) {}
 
   async add(userId: string, dto: AddWalletDto) {
@@ -76,6 +78,10 @@ export class WalletService {
       .returning();
 
     this.activityLog.log(userId, 'WALLET_VERIFIED', { address: wallet.address });
+
+    const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
+    if (user) this.mail.sendWalletLinked(user.email, user.fullName, wallet.address, wallet.network).catch(() => {});
+
     return updated;
   }
 

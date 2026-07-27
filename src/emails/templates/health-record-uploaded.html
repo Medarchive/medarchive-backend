@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Health Record Saved</title>
+</head>
+<body style="margin:0;padding:0;background-color:#F5F7F5;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F5F7F5;padding:32px 0;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;">
+
+          <!-- Header -->
+          <tr>
+            <td style="background-color:#0B2618;border-radius:8px 8px 0 0;padding:24px 32px;text-align:center;">
+              <img src="https://www.medarchive.africa/images/logos/logo.svg" height="36" alt="MedArchive" style="display:inline-block;" />
+            </td>
+          </tr>
+
+          <!-- Body -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:40px 32px;border-left:1px solid #E5E7EB;border-right:1px solid #E5E7EB;">
+              <h1 style="color:#1A1A1A;font-size:24px;font-weight:700;margin:0 0 16px 0;">Health Record Saved</h1>
+              <p style="color:#1A1A1A;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Hi {{NAME}},</p>
+              <p style="color:#1A1A1A;font-size:16px;line-height:1.6;margin:0 0 24px 0;">Your health record has been securely saved to your MedArchive vault.</p>
+
+              <!-- Detail Box -->
+              <div style="background-color:#F5F7F5;border:1px solid #E5E7EB;border-radius:8px;padding:20px 24px;margin:0 0 24px 0;">
+                <p style="color:#1A1A1A;font-size:14px;margin:0 0 8px 0;"><strong>Title:</strong> {{TITLE}}</p>
+                <p style="color:#1A1A1A;font-size:14px;margin:0;"><strong>Type:</strong> {{RECORD_TYPE}}</p>
+              </div>
+
+              <!-- CTA Button -->
+              <table cellpadding="0" cellspacing="0" style="margin:0 0 24px 0;">
+                <tr>
+                  <td style="border-radius:6px;background-color:#27AE60;">
+                    <a href="{{APP_URL}}/records" style="display:inline-block;padding:14px 28px;color:#FFFFFF;font-size:16px;font-weight:600;text-decoration:none;border-radius:6px;">View Record</a>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color:#6B7280;font-size:13px;line-height:1.5;margin:0;">Your records are encrypted and only you control access.</p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color:#F5F7F5;border:1px solid #E5E7EB;border-top:none;border-radius:0 0 8px 8px;padding:24px 32px;text-align:center;">
+              <p style="color:#6B7280;font-size:13px;line-height:1.5;margin:0;">© 2026 MedArchive Africa &nbsp;·&nbsp; <a href="https://medarchive.africa" style="color:#6B7280;text-decoration:none;">medarchive.africa</a> &nbsp;·&nbsp; You're receiving this because you have an account with MedArchive.</p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

@@ -1,7 +1,9 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  NODE_ENV: z
+    .enum(['development', 'production', 'test'])
+    .default('development'),
   APP_PORT: z.coerce.number().default(9090),
 
   DATABASE_URL: z.url(),
@@ -19,6 +21,8 @@ const envSchema = z.object({
   EMAIL_FROM: z.email(),
 
   ALLOWED_ORIGINS: z.string().default('http://localhost:3000'),
+
+  APP_URL: z.string().default('https://medarchive.africa'),
 
   AWS_REGION: z.string(),
   AWS_ACCESS_KEY_ID: z.string(),

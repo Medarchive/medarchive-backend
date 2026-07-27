@@ -14,6 +14,7 @@ import * as argon2 from 'argon2';
 import { Keypair } from '@stellar/stellar-sdk';
 import { uuidv7 } from 'uuidv7';
 import { randomInt, createHash } from 'crypto';
+import { env } from '../config/env';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import {
@@ -82,7 +83,7 @@ export class AuthService {
       return user.id;
     });
 
-    const { resendAfterSeconds } = await this.sendOtp(dto.email.toLowerCase());
+    const { resendAfterSeconds } = await this.sendOtp(dto.email.toLowerCase(), dto.fullName);
 
     this.logger.log(`User registered userId=${userId} role=${dto.role}`);
 
@@ -103,6 +104,9 @@ export class AuthService {
       .where(eq(users.email, email.toLowerCase()));
 
     await this.cache.del(key);
+
+    const user = await this.db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
+    if (user) this.mail.sendWelcome(user.email, user.fullName).catch(() => {});
 
     this.logger.log(`Email verified email=${email}`);
 
@@ -128,7 +132,7 @@ export class AuthService {
     if (user.emailVerifiedAt)
       throw new BadRequestException('Email already verified');
 
-    const { resendAfterSeconds } = await this.sendOtp(email.toLowerCase());
+    const { resendAfterSeconds } = await this.sendOtp(email.toLowerCase(), user.fullName);
 
     return { resendAfterSeconds };
   }
@@ -156,6 +160,9 @@ export class AuthService {
     setContextUserId(user.id);
     this.logger.log(`Login success userId=${user.id}`);
     this.activityLog.log(user.id, 'LOGIN');
+
+    const now = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
+    this.mail.sendLoginAlert(user.email, user.fullName, 'Unknown', now).catch(() => {});
 
     return this.issueTokens(user, wallet?.address ?? null);
   }
@@ -255,6 +262,31 @@ export class AuthService {
     return null;
   }
 
+  private readonly RESET_TTL_MS = 15 * 60 * 1000; // 15 min
+  private resetKey(token: string) { return `pwd:reset:${token}`; }
+
+  async forgotPassword(email: string) {
+    const user = await this.db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
+    // Always return success to avoid user enumeration
+    if (!user) return null;
+
+    const token = uuidv7();
+    await this.cache.set(this.resetKey(token), user.id, this.RESET_TTL_MS);
+    const resetLink = `${env().APP_URL}/auth/reset-password?token=${token}`;
+    this.mail.sendPasswordReset(user.email, user.fullName, resetLink, '15 minutes').catch(() => {});
+    return null;
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const userId = await this.cache.get<string>(this.resetKey(token));
+    if (!userId) throw new BadRequestException('Invalid or expired reset token');
+
+    const passwordHash = await argon2.hash(newPassword, ARGON2_OPTIONS);
+    await this.db.update(users).set({ password: passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
+    await this.cache.del(this.resetKey(token));
+    return null;
+  }
+
   private async issueTokens(
     user: typeof users.$inferSelect,
     walletAddress: string | null,
@@ -289,6 +321,7 @@ export class AuthService {
 
   private async sendOtp(
     email: string,
+    name: string,
   ): Promise<{ resendAfterSeconds: number }> {
     const otp = String(randomInt(100000, 999999));
     const expiresAt = Date.now() + OTP_RESEND_COOLDOWN_MS;
@@ -298,7 +331,7 @@ export class AuthService {
       String(expiresAt),
       OTP_RESEND_COOLDOWN_MS,
     );
-    await this.mail.sendOtp(email, otp);
+    await this.mail.sendOtp(email, otp, name);
     return { resendAfterSeconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000) };
   }
 
