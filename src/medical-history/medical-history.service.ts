@@ -83,14 +83,12 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
         .delete(userMedicalConditions)
         .where(eq(userMedicalConditions.userId, requestor.sub));
 
-      await tx
-        .insert(userMedicalConditions)
-        .values(
-          dto.conditionIds.map((conditionId) => ({
-            userId: requestor.sub,
-            conditionId,
-          })),
-        );
+      await tx.insert(userMedicalConditions).values(
+        dto.conditionIds.map((conditionId) => ({
+          userId: requestor.sub,
+          conditionId,
+        })),
+      );
 
       await this.upsertMedicalProfile(
         requestor.sub,

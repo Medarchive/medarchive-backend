@@ -15,11 +15,17 @@ export class ActivityLogService {
 
   constructor(@Inject(DB) private readonly db: Database) {}
 
-  log(userId: string, action: ActivityAction, metadata?: Record<string, unknown>): void {
+  log(
+    userId: string,
+    action: ActivityAction,
+    metadata?: Record<string, unknown>,
+  ): void {
     this.db
       .insert(activityLogs)
       .values({ userId, action, metadata: metadata ?? null })
-      .catch((err: unknown) => this.logger.error('Failed to write activity log', err));
+      .catch((err: unknown) =>
+        this.logger.error('Failed to write activity log', err),
+      );
   }
 
   async findAll(userId: string, pagination: PaginationDto) {
@@ -29,9 +35,10 @@ export class ActivityLogService {
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.activityLogs.findMany({
         where: eq(activityLogs.userId, userId),
-        orderBy: sortOrder === SortOrder.ASC
-          ? [activityLogs.createdAt]
-          : [desc(activityLogs.createdAt)],
+        orderBy:
+          sortOrder === SortOrder.ASC
+            ? [activityLogs.createdAt]
+            : [desc(activityLogs.createdAt)],
         limit: take,
         offset,
       }),

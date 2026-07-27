@@ -7,7 +7,6 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable, map } from 'rxjs';
 import { Response } from 'express';
-import { getRequestId } from '../context/request.context';
 import { RESPONSE_MESSAGE_KEY } from '../decorators/response-message.decorator';
 
 export interface ApiResponse {
@@ -30,7 +29,7 @@ export class TransformInterceptor implements NestInterceptor {
       ]) ?? 'success';
 
     return next.handle().pipe(
-      map((data) => ({
+      map((data: unknown) => ({
         statusCode: res.statusCode,
         message,
         timestamp: new Date().toISOString(),

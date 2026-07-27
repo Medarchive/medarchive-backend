@@ -8,14 +8,23 @@ export enum SortOrder {
 }
 
 export class PaginationDto {
-  @ApiPropertyOptional({ default: 1, minimum: 1, description: 'Page number (1-indexed)' })
+  @ApiPropertyOptional({
+    default: 1,
+    minimum: 1,
+    description: 'Page number (1-indexed)',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page: number = 1;
 
-  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100, description: 'Records per page' })
+  @ApiPropertyOptional({
+    default: 20,
+    minimum: 1,
+    maximum: 100,
+    description: 'Records per page',
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -23,7 +32,11 @@ export class PaginationDto {
   @Max(100)
   take: number = 20;
 
-  @ApiPropertyOptional({ enum: SortOrder, default: SortOrder.DESC, description: 'Sort direction' })
+  @ApiPropertyOptional({
+    enum: SortOrder,
+    default: SortOrder.DESC,
+    description: 'Sort direction',
+  })
   @IsOptional()
   @IsEnum(SortOrder)
   sortOrder: SortOrder = SortOrder.DESC;
@@ -38,7 +51,12 @@ export interface PaginationMeta {
   hasPrevious: boolean;
 }
 
-export function buildMeta(totalCount: number, page: number, take: number, currentCount: number): PaginationMeta {
+export function buildMeta(
+  totalCount: number,
+  page: number,
+  take: number,
+  currentCount: number,
+): PaginationMeta {
   const totalPages = Math.ceil(totalCount / take);
   return {
     totalCount,

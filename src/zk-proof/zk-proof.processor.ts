@@ -6,7 +6,7 @@ import { createHash } from 'crypto';
 import { generate } from '@zk-kit/poseidon-proof';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { healthRecordProofs } from '../db/schema';
+import { healthRecordProofs, healthRecords } from '../db/schema';
 
 export const ZK_PROOF_QUEUE = 'zk-proof';
 
@@ -50,18 +50,29 @@ export class ZkProofProcessor extends WorkerHost {
       // scope = recordId (public context); preimages = private inputs
       const poseidonProof = await generate(preimages, recordId);
 
-      await this.db
-        .update(healthRecordProofs)
-        .set({
-          status: 'GENERATED',
-          commitment: poseidonProof.digest,
-          proof: poseidonProof.proof as unknown as Record<string, unknown>,
-          publicSignals: [poseidonProof.scope, String(poseidonProof.numberOfInputs)] as unknown as string[],
-          generatedAt: new Date(),
-        })
-        .where(eq(healthRecordProofs.healthRecordId, recordId));
+      await Promise.all([
+        this.db
+          .update(healthRecordProofs)
+          .set({
+            status: 'GENERATED',
+            commitment: poseidonProof.digest as string,
+            proof: poseidonProof.proof as unknown,
+            publicSignals: [
+              poseidonProof.scope,
+              String(poseidonProof.numberOfInputs),
+            ] as unknown,
+            generatedAt: new Date(),
+          })
+          .where(eq(healthRecordProofs.healthRecordId, recordId)),
+        this.db
+          .update(healthRecords)
+          .set({ zkVerified: true, updatedAt: new Date() })
+          .where(eq(healthRecords.id, recordId)),
+      ]);
 
-      this.logger.log(`ZK proof generated recordId=${recordId} commitment=${poseidonProof.digest}`);
+      this.logger.log(
+        `ZK proof generated recordId=${recordId} commitment=${poseidonProof.digest}`,
+      );
     } catch (err) {
       this.logger.error(`ZK proof failed recordId=${recordId}`, err);
 

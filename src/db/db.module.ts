@@ -8,7 +8,11 @@ import * as schema from './schema';
 
 export const DB = Symbol('DB');
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
-export type DbTransaction = PgTransaction<PgQueryResultHKT, typeof schema, ExtractTablesWithRelations<typeof schema>>;
+export type DbTransaction = PgTransaction<
+  PgQueryResultHKT,
+  typeof schema,
+  ExtractTablesWithRelations<typeof schema>
+>;
 
 @Global()
 @Module({

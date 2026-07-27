@@ -48,7 +48,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode = HttpStatus.UNPROCESSABLE_ENTITY;
       message = 'Validation failed.';
       const first = exception.issues[0];
-      error = first.path.length ? `${first.path.join('.')} ${first.message}` : first.message;
+      error = first.path.length
+        ? `${first.path.join('.')} ${first.message}`
+        : first.message;
     }
 
     this.logger.error({

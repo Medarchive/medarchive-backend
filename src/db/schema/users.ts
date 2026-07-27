@@ -10,13 +10,19 @@ import {
 } from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 
-export const userRoleEnum = pgEnum('user_role', ['PATIENT', 'PROVIDER', 'ADMIN']);
+export const userRoleEnum = pgEnum('user_role', [
+  'PATIENT',
+  'PROVIDER',
+  'ADMIN',
+]);
 export const genderEnum = pgEnum('gender', ['MALE', 'FEMALE']);
 
 export const users = pgTable(
   'users',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     fullName: text('full_name').notNull(),
     email: text('email').notNull(),
     phone: text('phone'),
@@ -24,8 +30,12 @@ export const users = pgTable(
     role: userRoleEnum('role').notNull(),
     gender: genderEnum('gender'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [uniqueIndex('users_email_idx').on(t.email)],
 );
@@ -33,7 +43,9 @@ export const users = pgTable(
 export const userPersonalInfo = pgTable(
   'user_personal_info',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .unique()
@@ -49,8 +61,12 @@ export const userPersonalInfo = pgTable(
     region: text('region').notNull(),
     postcode: text('postcode').notNull(),
     country: text('country').notNull(),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [index('user_personal_info_user_id_idx').on(t.userId)],
 );
@@ -58,13 +74,19 @@ export const userPersonalInfo = pgTable(
 export const patientProfiles = pgTable(
   'patient_profiles',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .unique()
       .references(() => users.id, { onDelete: 'cascade' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [index('patient_profiles_user_id_idx').on(t.userId)],
 );
@@ -72,7 +94,9 @@ export const patientProfiles = pgTable(
 export const providerProfiles = pgTable(
   'provider_profiles',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .unique()
@@ -80,8 +104,12 @@ export const providerProfiles = pgTable(
     specialty: text('specialty'),
     licenseNumber: text('license_number'),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [index('provider_profiles_user_id_idx').on(t.userId)],
 );
@@ -89,15 +117,21 @@ export const providerProfiles = pgTable(
 export const refreshTokens = pgTable(
   'refresh_tokens',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     tokenHash: text('token_hash').notNull(),
     expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
     revokedAt: timestamp('revoked_at', { withTimezone: true }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     uniqueIndex('refresh_tokens_hash_idx').on(t.tokenHash),

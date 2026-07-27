@@ -25,11 +25,22 @@ export class EmergencyContactsService {
       .returning();
 
     await this.dashboard.invalidate(userId);
-    this.activityLog.log(userId, 'EMERGENCY_CONTACT_ADDED', { contactId: contact.id });
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_ADDED', {
+      contactId: contact.id,
+    });
 
     if (dto.email) {
-      const patient = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
-      if (patient) this.mail.sendEmergencyContactAdded(dto.email, `${dto.firstName} ${dto.lastName}`, patient.fullName).catch(() => {});
+      const patient = await this.db.query.users.findFirst({
+        where: eq(users.id, userId),
+      });
+      if (patient)
+        this.mail
+          .sendEmergencyContactAdded(
+            dto.email,
+            `${dto.firstName} ${dto.lastName}`,
+            patient.fullName,
+          )
+          .catch(() => {});
     }
 
     return contact;
@@ -46,25 +57,33 @@ export class EmergencyContactsService {
     const [updated] = await this.db
       .update(emergencyContacts)
       .set({ ...dto, updatedAt: new Date() })
-      .where(and(eq(emergencyContacts.id, id), eq(emergencyContacts.userId, userId)))
+      .where(
+        and(eq(emergencyContacts.id, id), eq(emergencyContacts.userId, userId)),
+      )
       .returning();
 
     if (!updated) throw new NotFoundException('Contact not found');
 
     await this.dashboard.invalidate(userId);
-    this.activityLog.log(userId, 'EMERGENCY_CONTACT_UPDATED', { contactId: id });
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_UPDATED', {
+      contactId: id,
+    });
     return updated;
   }
 
   async remove(userId: string, id: string) {
     const [deleted] = await this.db
       .delete(emergencyContacts)
-      .where(and(eq(emergencyContacts.id, id), eq(emergencyContacts.userId, userId)))
+      .where(
+        and(eq(emergencyContacts.id, id), eq(emergencyContacts.userId, userId)),
+      )
       .returning();
 
     if (!deleted) throw new NotFoundException('Contact not found');
 
     await this.dashboard.invalidate(userId);
-    this.activityLog.log(userId, 'EMERGENCY_CONTACT_DELETED', { contactId: id });
+    this.activityLog.log(userId, 'EMERGENCY_CONTACT_DELETED', {
+      contactId: id,
+    });
   }
 }

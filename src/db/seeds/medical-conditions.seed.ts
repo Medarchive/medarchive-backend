@@ -15,7 +15,11 @@ const CONDITIONS = [
   { name: 'Liver Disease', category: 'DISEASE' as const, sortOrder: 5 },
   { name: 'Kidney Disease', category: 'DISEASE' as const, sortOrder: 6 },
   { name: 'Breast Lump', category: 'CONDITION' as const, sortOrder: 7 },
-  { name: 'I am pregnant or there is a risk I could get pregnant', category: 'CONDITION' as const, sortOrder: 8 },
+  {
+    name: 'I am pregnant or there is a risk I could get pregnant',
+    category: 'CONDITION' as const,
+    sortOrder: 8,
+  },
   { name: 'Heart Disease', category: 'DISEASE' as const, sortOrder: 9 },
 ];
 
@@ -23,10 +27,7 @@ async function seed() {
   const client = postgres(process.env.DATABASE_URL!, { max: 1 });
   const db = drizzle(client);
 
-  await db
-    .insert(medicalConditions)
-    .values(CONDITIONS)
-    .onConflictDoNothing();
+  await db.insert(medicalConditions).values(CONDITIONS).onConflictDoNothing();
 
   console.log(`Seeded ${CONDITIONS.length} medical conditions`);
   await client.end();

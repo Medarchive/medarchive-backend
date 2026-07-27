@@ -28,6 +28,7 @@ import { MailService } from '../mail/mail.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { setContextUserId } from '../common/context/request.context';
 import type { RegisterDto } from './dto/register.dto';
+import { RegisterRole } from './dto/register.dto';
 import type { AuthTokens, JwtPayload } from './auth.types';
 
 const ARGON2_OPTIONS: Parameters<typeof argon2.hash>[1] = {
@@ -60,7 +61,10 @@ export class AuthService {
 
     if (existing) throw new ConflictException('Email already registered');
 
-    const passwordHash = await argon2.hash(dto.password, ARGON2_OPTIONS);
+    const passwordHash = (await argon2.hash(
+      dto.password,
+      ARGON2_OPTIONS,
+    )) as string;
 
     const userId = await this.db.transaction(async (tx) => {
       const [user] = await tx
@@ -74,7 +78,7 @@ export class AuthService {
         })
         .returning({ id: users.id });
 
-      if (dto.role === 'PATIENT') {
+      if (dto.role === RegisterRole.PATIENT) {
         await tx.insert(patientProfiles).values({ userId: user.id });
       } else {
         await tx.insert(providerProfiles).values({ userId: user.id });
@@ -83,7 +87,10 @@ export class AuthService {
       return user.id;
     });
 
-    const { resendAfterSeconds } = await this.sendOtp(dto.email.toLowerCase(), dto.fullName);
+    const { resendAfterSeconds } = await this.sendOtp(
+      dto.email.toLowerCase(),
+      dto.fullName,
+    );
 
     this.logger.log(`User registered userId=${userId} role=${dto.role}`);
 
@@ -105,7 +112,9 @@ export class AuthService {
 
     await this.cache.del(key);
 
-    const user = await this.db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, email.toLowerCase()),
+    });
     if (user) this.mail.sendWelcome(user.email, user.fullName).catch(() => {});
 
     this.logger.log(`Email verified email=${email}`);
@@ -132,7 +141,10 @@ export class AuthService {
     if (user.emailVerifiedAt)
       throw new BadRequestException('Email already verified');
 
-    const { resendAfterSeconds } = await this.sendOtp(email.toLowerCase(), user.fullName);
+    const { resendAfterSeconds } = await this.sendOtp(
+      email.toLowerCase(),
+      user.fullName,
+    );
 
     return { resendAfterSeconds };
   }
@@ -161,8 +173,14 @@ export class AuthService {
     this.logger.log(`Login success userId=${user.id}`);
     this.activityLog.log(user.id, 'LOGIN');
 
-    const now = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Lagos', dateStyle: 'medium', timeStyle: 'short' });
-    this.mail.sendLoginAlert(user.email, user.fullName, 'Unknown', now).catch(() => {});
+    const now = new Date().toLocaleString('en-GB', {
+      timeZone: 'Africa/Lagos',
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    });
+    this.mail
+      .sendLoginAlert(user.email, user.fullName, 'Unknown', now)
+      .catch(() => {});
 
     return this.issueTokens(user, wallet?.address ?? null);
   }
@@ -172,16 +190,27 @@ export class AuthService {
       where: eq(wallets.address, address),
     });
 
-    if (!wallet) throw new UnauthorizedException('No wallet found for this address');
+    if (!wallet)
+      throw new UnauthorizedException('No wallet found for this address');
 
     const nonce = uuidv7();
-    await this.cache.set(this.walletNonceKey(address), nonce, WALLET_NONCE_TTL_MS);
+    await this.cache.set(
+      this.walletNonceKey(address),
+      nonce,
+      WALLET_NONCE_TTL_MS,
+    );
 
     return { nonce };
   }
 
-  async walletLogin(address: string, nonce: string, signature: string): Promise<AuthTokens> {
-    const storedNonce = await this.cache.get<string>(this.walletNonceKey(address));
+  async walletLogin(
+    address: string,
+    nonce: string,
+    signature: string,
+  ): Promise<AuthTokens> {
+    const storedNonce = await this.cache.get<string>(
+      this.walletNonceKey(address),
+    );
     if (!storedNonce || storedNonce !== nonce) {
       throw new UnauthorizedException('Invalid or expired nonce');
     }
@@ -190,10 +219,13 @@ export class AuthService {
       where: eq(wallets.address, address),
     });
 
-    if (!wallet) throw new UnauthorizedException('No wallet found for this address');
+    if (!wallet)
+      throw new UnauthorizedException('No wallet found for this address');
 
     if (!wallet.verifiedAt) {
-      throw new UnauthorizedException('Wallet not verified. Complete wallet verification first via POST /wallet/verify');
+      throw new UnauthorizedException(
+        'Wallet not verified. Complete wallet verification first via POST /wallet/verify',
+      );
     }
 
     if (!this.verifyStellarSignature(address, nonce, signature)) {
@@ -263,26 +295,39 @@ export class AuthService {
   }
 
   private readonly RESET_TTL_MS = 15 * 60 * 1000; // 15 min
-  private resetKey(token: string) { return `pwd:reset:${token}`; }
+  private resetKey(token: string) {
+    return `pwd:reset:${token}`;
+  }
 
   async forgotPassword(email: string) {
-    const user = await this.db.query.users.findFirst({ where: eq(users.email, email.toLowerCase()) });
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.email, email.toLowerCase()),
+    });
     // Always return success to avoid user enumeration
     if (!user) return null;
 
     const token = uuidv7();
     await this.cache.set(this.resetKey(token), user.id, this.RESET_TTL_MS);
     const resetLink = `${env().APP_URL}/auth/reset-password?token=${token}`;
-    this.mail.sendPasswordReset(user.email, user.fullName, resetLink, '15 minutes').catch(() => {});
+    this.mail
+      .sendPasswordReset(user.email, user.fullName, resetLink, '15 minutes')
+      .catch(() => {});
     return null;
   }
 
   async resetPassword(token: string, newPassword: string) {
     const userId = await this.cache.get<string>(this.resetKey(token));
-    if (!userId) throw new BadRequestException('Invalid or expired reset token');
+    if (!userId)
+      throw new BadRequestException('Invalid or expired reset token');
 
-    const passwordHash = await argon2.hash(newPassword, ARGON2_OPTIONS);
-    await this.db.update(users).set({ password: passwordHash, updatedAt: new Date() }).where(eq(users.id, userId));
+    const passwordHash = (await argon2.hash(
+      newPassword,
+      ARGON2_OPTIONS,
+    )) as string;
+    await this.db
+      .update(users)
+      .set({ password: passwordHash, updatedAt: new Date() })
+      .where(eq(users.id, userId));
     await this.cache.del(this.resetKey(token));
     return null;
   }
@@ -310,11 +355,12 @@ export class AuthService {
       expiresAt,
     });
 
-    const decoded = this.jwt.decode(accessToken) as { exp: number };
+    const decoded: { exp: number } = this.jwt.decode(accessToken);
 
     return {
       accessToken,
       refreshToken: rawRefresh,
+
       expiresIn: decoded.exp - Math.floor(Date.now() / 1000),
     };
   }
@@ -335,10 +381,17 @@ export class AuthService {
     return { resendAfterSeconds: Math.ceil(OTP_RESEND_COOLDOWN_MS / 1000) };
   }
 
-  private verifyStellarSignature(publicKey: string, message: string, signature: string): boolean {
+  private verifyStellarSignature(
+    publicKey: string,
+    message: string,
+    signature: string,
+  ): boolean {
     try {
       const keypair = Keypair.fromPublicKey(publicKey);
-      return keypair.verify(Buffer.from(message, 'utf8'), Buffer.from(signature, 'hex'));
+      return keypair.verify(
+        Buffer.from(message, 'utf8'),
+        Buffer.from(signature, 'hex'),
+      );
     } catch {
       return false;
     }
@@ -359,5 +412,4 @@ export class AuthService {
   private otpCooldownKey(email: string) {
     return `otp:cooldown:${email}`;
   }
-
 }

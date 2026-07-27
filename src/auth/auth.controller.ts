@@ -26,7 +26,6 @@ import { WalletNonceDto, WalletLoginDto } from './dto/wallet-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import {
   ApiErrorResponse,
@@ -36,7 +35,6 @@ import {
   OtpResendData,
   RegisterResponseData,
 } from '../common/swagger/api-responses';
-import type { JwtPayload } from './auth.types';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -168,9 +166,16 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ auth: { limit: 3, ttl: 60_000 } })
   @ResponseMessage('If that email exists, a reset link has been sent')
-  @ApiOperation({ summary: 'Request password reset', description: 'Sends a reset link to the email if it exists. Always returns success to prevent enumeration.' })
+  @ApiOperation({
+    summary: 'Request password reset',
+    description:
+      'Sends a reset link to the email if it exists. Always returns success to prevent enumeration.',
+  })
   @ApiBody({ type: ForgotPasswordDto })
-  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
   forgotPassword(@Body() dto: ForgotPasswordDto) {
     return this.authService.forgotPassword(dto.email);
   }
@@ -180,10 +185,21 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ auth: { limit: 5, ttl: 60_000 } })
   @ResponseMessage('Password reset successfully')
-  @ApiOperation({ summary: 'Reset password with token', description: 'Uses the token from the reset email to set a new password. Token expires in 15 minutes.' })
+  @ApiOperation({
+    summary: 'Reset password with token',
+    description:
+      'Uses the token from the reset email to set a new password. Token expires in 15 minutes.',
+  })
   @ApiBody({ type: ResetPasswordDto })
-  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
-  @ApiResponse({ status: 400, description: 'Invalid or expired token.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or expired token.',
+    type: ApiErrorResponse,
+  })
   resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
@@ -229,7 +245,8 @@ export class AuthController {
   @ResponseMessage('Nonce generated successfully')
   @ApiOperation({
     summary: 'Get wallet login nonce',
-    description: 'Takes a wallet address, returns a nonce to sign. Proceed to POST /auth/use-wallet.',
+    description:
+      'Takes a wallet address, returns a nonce to sign. Proceed to POST /auth/use-wallet.',
   })
   @ApiBody({ type: WalletNonceDto })
   @ApiResponse({
@@ -237,11 +254,22 @@ export class AuthController {
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponse) },
-        { properties: { message: { example: 'Nonce generated successfully' }, data: { example: { nonce: '01960000-0000-7000-0000-000000000000' } } } },
+        {
+          properties: {
+            message: { example: 'Nonce generated successfully' },
+            data: {
+              example: { nonce: '01960000-0000-7000-0000-000000000000' },
+            },
+          },
+        },
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'No wallet found for this address.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'No wallet found for this address.',
+    type: ApiErrorResponse,
+  })
   walletNonce(@Body() dto: WalletNonceDto) {
     return this.authService.walletNonce(dto.address);
   }
@@ -253,7 +281,8 @@ export class AuthController {
   @ResponseMessage('Login successful')
   @ApiOperation({
     summary: 'Login with Stellar wallet',
-    description: 'Sign the nonce from POST /auth/wallet-nonce with your Stellar private key and submit here. Wallet must be verified (POST /wallet/verify) before this works.',
+    description:
+      'Sign the nonce from POST /auth/wallet-nonce with your Stellar private key and submit here. Wallet must be verified (POST /wallet/verify) before this works.',
   })
   @ApiBody({ type: WalletLoginDto })
   @ApiResponse({
@@ -271,7 +300,11 @@ export class AuthController {
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'Invalid nonce / bad signature / wallet not verified.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid nonce / bad signature / wallet not verified.',
+    type: ApiErrorResponse,
+  })
   useWallet(@Body() dto: WalletLoginDto) {
     return this.authService.walletLogin(dto.address, dto.nonce, dto.signature);
   }
@@ -343,7 +376,7 @@ export class AuthController {
     description: 'Missing or invalid access token.',
     type: ApiErrorResponse,
   })
-  logout(@Body() dto: RefreshDto, @CurrentUser() _user: JwtPayload) {
+  logout(@Body() dto: RefreshDto) {
     return this.authService.logout(dto.refreshToken);
   }
 }

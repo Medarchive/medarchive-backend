@@ -1,4 +1,13 @@
-import { pgTable, text, uuid, timestamp, pgEnum, index, date } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  text,
+  uuid,
+  timestamp,
+  pgEnum,
+  index,
+  date,
+  boolean,
+} from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { users } from './users';
 import { healthRecordFiles } from './health-record-files';
@@ -27,7 +36,9 @@ export const allergyTypeEnum = pgEnum('allergy_type', [
 export const healthRecords = pgTable(
   'health_records',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
@@ -51,8 +62,13 @@ export const healthRecords = pgTable(
     // shared optional fields
     recordDate: date('record_date'),
     description: text('description'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    zkVerified: boolean('zk_verified').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     index('health_records_user_id_idx').on(t.userId),
@@ -61,10 +77,13 @@ export const healthRecords = pgTable(
   ],
 );
 
-export const healthRecordsRelations = relations(healthRecords, ({ many, one }) => ({
-  files: many(healthRecordFiles),
-  proof: one(healthRecordProofs, {
-    fields: [healthRecords.id],
-    references: [healthRecordProofs.healthRecordId],
+export const healthRecordsRelations = relations(
+  healthRecords,
+  ({ many, one }) => ({
+    files: many(healthRecordFiles),
+    proof: one(healthRecordProofs, {
+      fields: [healthRecords.id],
+      references: [healthRecordProofs.healthRecordId],
+    }),
   }),
-}));
+);

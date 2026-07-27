@@ -1,4 +1,12 @@
-import { pgTable, uuid, timestamp, text, jsonb, pgEnum, index } from 'drizzle-orm/pg-core';
+import {
+  pgTable,
+  uuid,
+  timestamp,
+  text,
+  jsonb,
+  pgEnum,
+  index,
+} from 'drizzle-orm/pg-core';
 import { sql } from 'drizzle-orm';
 import { users } from './users.js';
 
@@ -24,14 +32,18 @@ export const activityActionEnum = pgEnum('activity_action', [
 export const activityLogs = pgTable(
   'activity_logs',
   {
-    id: uuid('id').primaryKey().default(sql`uuidv7()`),
+    id: uuid('id')
+      .primaryKey()
+      .default(sql`uuidv7()`),
     userId: uuid('user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     action: activityActionEnum('action').notNull(),
     metadata: jsonb('metadata'),
     ipAddress: text('ip_address'),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
   },
   (t) => [
     index('activity_logs_user_id_idx').on(t.userId),

@@ -45,7 +45,8 @@ export class UsersController {
   @ResponseMessage('Profile retrieved successfully')
   @ApiOperation({
     summary: 'Get own profile',
-    description: 'Returns the authenticated user\'s profile including their patient or provider sub-profile.',
+    description:
+      "Returns the authenticated user's profile including their patient or provider sub-profile.",
   })
   @ApiResponse({
     status: 200,
@@ -62,7 +63,11 @@ export class UsersController {
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
   getMe(@CurrentUser() user: JwtPayload) {
     return this.usersService.getMe(user);
   }
@@ -73,7 +78,7 @@ export class UsersController {
   @ApiOperation({
     summary: 'Update own profile',
     description:
-      'Updates the authenticated user\'s profile fields. ' +
+      "Updates the authenticated user's profile fields. " +
       'Password change requires `currentPassword`. ' +
       '`specialty` and `licenseNumber` are provider-only fields.',
   })
@@ -93,10 +98,26 @@ export class UsersController {
       ],
     },
   })
-  @ApiResponse({ status: 400, description: 'currentPassword required or validation error.', type: ApiErrorResponse })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
-  @ApiResponse({ status: 403, description: 'Current password incorrect.', type: ApiErrorResponse })
-  @ApiResponse({ status: 409, description: 'Email already in use.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 400,
+    description: 'currentPassword required or validation error.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Current password incorrect.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Email already in use.',
+    type: ApiErrorResponse,
+  })
   updateMe(@CurrentUser() user: JwtPayload, @Body() dto: UpdateProfileDto) {
     return this.usersService.updateMe(user, dto);
   }
@@ -107,7 +128,8 @@ export class UsersController {
   @ResponseMessage('Users retrieved successfully')
   @ApiOperation({
     summary: '[Admin] List all users with pagination',
-    description: 'Paginated list of all users. Supports filtering by role and searching by email. Admin only.',
+    description:
+      'Paginated list of all users. Supports filtering by role and searching by email. Admin only.',
   })
   @ApiResponse({
     status: 200,
@@ -124,8 +146,16 @@ export class UsersController {
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden — admin role required.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — admin role required.',
+    type: ApiErrorResponse,
+  })
   listUsers(@Query() dto: ListUsersDto) {
     return this.usersService.listUsers(dto);
   }
@@ -136,9 +166,13 @@ export class UsersController {
   @ResponseMessage('User retrieved successfully')
   @ApiOperation({
     summary: '[Admin] Get user by ID',
-    description: 'Retrieves a single user\'s full profile by UUID. Admin only.',
+    description: "Retrieves a single user's full profile by UUID. Admin only.",
   })
-  @ApiParam({ name: 'id', description: 'User UUID (uuidv7)', example: '01960000-0000-7000-0000-000000000000' })
+  @ApiParam({
+    name: 'id',
+    description: 'User UUID (uuidv7)',
+    example: '01960000-0000-7000-0000-000000000000',
+  })
   @ApiResponse({
     status: 200,
     description: 'User profile.',
@@ -154,9 +188,21 @@ export class UsersController {
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden.', type: ApiErrorResponse })
-  @ApiResponse({ status: 404, description: 'User not found.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found.',
+    type: ApiErrorResponse,
+  })
   findById(@Param('id') id: string) {
     return this.usersService.findById(id);
   }
@@ -167,9 +213,14 @@ export class UsersController {
   @ResponseMessage('Provider verified successfully')
   @ApiOperation({
     summary: '[Admin] Verify a provider account',
-    description: 'Sets `verifiedAt` on the provider\'s profile. Can only be called once per provider. Admin only.',
+    description:
+      "Sets `verifiedAt` on the provider's profile. Can only be called once per provider. Admin only.",
   })
-  @ApiParam({ name: 'id', description: 'Provider user UUID', example: '01960000-0000-7000-0000-000000000000' })
+  @ApiParam({
+    name: 'id',
+    description: 'Provider user UUID',
+    example: '01960000-0000-7000-0000-000000000000',
+  })
   @ApiResponse({
     status: 200,
     description: 'Provider verified.',
@@ -185,10 +236,26 @@ export class UsersController {
       ],
     },
   })
-  @ApiResponse({ status: 400, description: 'Provider already verified.', type: ApiErrorResponse })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
-  @ApiResponse({ status: 403, description: 'Forbidden.', type: ApiErrorResponse })
-  @ApiResponse({ status: 404, description: 'Provider profile not found.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 400,
+    description: 'Provider already verified.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Provider profile not found.',
+    type: ApiErrorResponse,
+  })
   verifyProvider(@Param('id') id: string) {
     return this.usersService.verifyProvider(id);
   }

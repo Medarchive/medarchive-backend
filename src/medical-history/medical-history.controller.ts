@@ -1,11 +1,31 @@
-import { Body, Controller, Delete, HttpCode, HttpStatus, Patch, Post, UseGuards, Version } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiOperation, ApiResponse, ApiTags, getSchemaPath } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Delete,
+  HttpCode,
+  HttpStatus,
+  Patch,
+  Post,
+  UseGuards,
+  Version,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+  getSchemaPath,
+} from '@nestjs/swagger';
 import { MedicalHistoryService } from './medical-history.service';
 import { MedicalHistoryDto } from './dto/medical-history.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
-import { ApiErrorResponse, ApiSuccessResponse } from '../common/swagger/api-responses';
+import {
+  ApiErrorResponse,
+  ApiSuccessResponse,
+} from '../common/swagger/api-responses';
 import type { JwtPayload } from '../auth/auth.types';
 
 @ApiTags('medical-history')
@@ -20,7 +40,8 @@ export class MedicalHistoryController {
   @ResponseMessage('Medical history updated successfully')
   @ApiOperation({
     summary: 'Add conditions to medical history',
-    description: 'Appends the given conditions to the user\'s medical history. Duplicate entries are silently ignored.',
+    description:
+      "Appends the given conditions to the user's medical history. Duplicate entries are silently ignored.",
   })
   @ApiBody({ type: MedicalHistoryDto })
   @ApiResponse({
@@ -29,12 +50,24 @@ export class MedicalHistoryController {
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponse) },
-        { properties: { message: { example: 'Medical history updated successfully' } } },
+        {
+          properties: {
+            message: { example: 'Medical history updated successfully' },
+          },
+        },
       ],
     },
   })
-  @ApiResponse({ status: 400, description: 'Invalid or inactive condition IDs.', type: ApiErrorResponse })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or inactive condition IDs.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
   add(@CurrentUser() user: JwtPayload, @Body() dto: MedicalHistoryDto) {
     return this.medicalHistoryService.add(user, dto);
   }
@@ -45,7 +78,8 @@ export class MedicalHistoryController {
   @ResponseMessage('Medical history replaced successfully')
   @ApiOperation({
     summary: 'Replace full medical history',
-    description: 'Deletes all existing conditions and replaces them with the given set. Use this when the user resubmits the full selection.',
+    description:
+      'Deletes all existing conditions and replaces them with the given set. Use this when the user resubmits the full selection.',
   })
   @ApiBody({ type: MedicalHistoryDto })
   @ApiResponse({
@@ -54,12 +88,24 @@ export class MedicalHistoryController {
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponse) },
-        { properties: { message: { example: 'Medical history replaced successfully' } } },
+        {
+          properties: {
+            message: { example: 'Medical history replaced successfully' },
+          },
+        },
       ],
     },
   })
-  @ApiResponse({ status: 400, description: 'Invalid or inactive condition IDs.', type: ApiErrorResponse })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 400,
+    description: 'Invalid or inactive condition IDs.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
   replace(@CurrentUser() user: JwtPayload, @Body() dto: MedicalHistoryDto) {
     return this.medicalHistoryService.replace(user, dto);
   }
@@ -70,7 +116,8 @@ export class MedicalHistoryController {
   @ResponseMessage('Conditions removed successfully')
   @ApiOperation({
     summary: 'Remove specific conditions from medical history',
-    description: 'Removes the specified conditions from the user\'s medical history. Conditions not in the user\'s history are silently ignored.',
+    description:
+      "Removes the specified conditions from the user's medical history. Conditions not in the user's history are silently ignored.",
   })
   @ApiBody({ type: MedicalHistoryDto })
   @ApiResponse({
@@ -79,11 +126,19 @@ export class MedicalHistoryController {
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponse) },
-        { properties: { message: { example: 'Conditions removed successfully' } } },
+        {
+          properties: {
+            message: { example: 'Conditions removed successfully' },
+          },
+        },
       ],
     },
   })
-  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
   remove(@CurrentUser() user: JwtPayload, @Body() dto: MedicalHistoryDto) {
     return this.medicalHistoryService.remove(user, dto);
   }

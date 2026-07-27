@@ -11,7 +11,10 @@ import {
   patientCareIds,
   emergencyContacts,
 } from '../db/schema';
-import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service';
+import {
+  S3Service,
+  PRESIGNED_URL_REFRESH_THRESHOLD_MS,
+} from '../s3/s3.service';
 import { healthRecordFiles } from '../db/schema';
 import { WalletService } from '../wallet/wallet.service';
 
@@ -32,7 +35,11 @@ export class DashboardService {
     if (cached) return cached;
 
     const data = await this.aggregate(userId);
-    await this.cache.set(dashboardCacheKey(userId), data, DASHBOARD_CACHE_TTL_MS);
+    await this.cache.set(
+      dashboardCacheKey(userId),
+      data,
+      DASHBOARD_CACHE_TTL_MS,
+    );
     return data;
   }
 
@@ -41,29 +48,30 @@ export class DashboardService {
   }
 
   private async aggregate(userId: string) {
-    const [profile, conditions, recentRecords, careId, contacts, wallet] = await Promise.all([
-      this.db.query.userMedicalProfile.findFirst({
-        where: eq(userMedicalProfile.userId, userId),
-      }),
-      this.db.query.userMedicalConditions.findMany({
-        where: eq(userMedicalConditions.userId, userId),
-        with: { condition: true },
-      }),
-      this.db.query.healthRecords.findMany({
-        where: eq(healthRecords.userId, userId),
-        orderBy: [desc(healthRecords.createdAt)],
-        limit: 6,
-        with: { files: true },
-      }),
-      this.db.query.patientCareIds.findFirst({
-        where: eq(patientCareIds.userId, userId),
-      }),
-      this.db.query.emergencyContacts.findMany({
-        where: eq(emergencyContacts.userId, userId),
-        orderBy: emergencyContacts.createdAt,
-      }),
-      this.wallet.getForDashboard(userId),
-    ]);
+    const [profile, conditions, recentRecords, careId, contacts, wallet] =
+      await Promise.all([
+        this.db.query.userMedicalProfile.findFirst({
+          where: eq(userMedicalProfile.userId, userId),
+        }),
+        this.db.query.userMedicalConditions.findMany({
+          where: eq(userMedicalConditions.userId, userId),
+          with: { condition: true },
+        }),
+        this.db.query.healthRecords.findMany({
+          where: eq(healthRecords.userId, userId),
+          orderBy: [desc(healthRecords.createdAt)],
+          limit: 6,
+          with: { files: true },
+        }),
+        this.db.query.patientCareIds.findFirst({
+          where: eq(patientCareIds.userId, userId),
+        }),
+        this.db.query.emergencyContacts.findMany({
+          where: eq(emergencyContacts.userId, userId),
+          orderBy: emergencyContacts.createdAt,
+        }),
+        this.wallet.getForDashboard(userId),
+      ]);
 
     const now = Date.now();
     const refreshedRecords = await Promise.all(
@@ -75,7 +83,9 @@ export class DashboardService {
             const expiresAt = new Date(f.fileUrlExpiresAt).getTime();
             if (expiresAt - now > PRESIGNED_URL_REFRESH_THRESHOLD_MS) return f;
 
-            const { fileUrl, fileUrlExpiresAt } = await this.s3.getDownloadUrl(f.s3Key);
+            const { fileUrl, fileUrlExpiresAt } = await this.s3.getDownloadUrl(
+              f.s3Key,
+            );
             await this.db
               .update(healthRecordFiles)
               .set({ fileUrl, fileUrlExpiresAt, updatedAt: new Date() })

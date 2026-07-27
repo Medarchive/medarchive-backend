@@ -13,7 +13,12 @@ export class S3Service {
   private readonly bucket: string;
 
   constructor() {
-    const { AWS_REGION, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_S3_BUCKET } = env();
+    const {
+      AWS_REGION,
+      AWS_ACCESS_KEY_ID,
+      AWS_SECRET_ACCESS_KEY,
+      AWS_S3_BUCKET,
+    } = env();
     this.client = new S3Client({
       region: AWS_REGION,
       credentials: {
@@ -24,7 +29,11 @@ export class S3Service {
     this.bucket = AWS_S3_BUCKET;
   }
 
-  async upload(key: string, buffer: Buffer, contentType: string): Promise<void> {
+  async upload(
+    key: string,
+    buffer: Buffer,
+    contentType: string,
+  ): Promise<void> {
     await this.client.send(
       new PutObjectCommand({
         Bucket: this.bucket,
@@ -35,17 +44,23 @@ export class S3Service {
     );
   }
 
-  async getDownloadUrl(key: string): Promise<{ fileUrl: string; fileUrlExpiresAt: Date }> {
+  async getDownloadUrl(
+    key: string,
+  ): Promise<{ fileUrl: string; fileUrlExpiresAt: Date }> {
     const command = new GetObjectCommand({ Bucket: this.bucket, Key: key });
     const fileUrl = await getSignedUrl(this.client, command, {
       expiresIn: PRESIGNED_URL_TTL_SECONDS,
     });
 
-    const fileUrlExpiresAt = new Date(Date.now() + PRESIGNED_URL_TTL_SECONDS * 1000);
+    const fileUrlExpiresAt = new Date(
+      Date.now() + PRESIGNED_URL_TTL_SECONDS * 1000,
+    );
     return { fileUrl, fileUrlExpiresAt };
   }
 
   async delete(key: string): Promise<void> {
-    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: key }));
+    await this.client.send(
+      new DeleteObjectCommand({ Bucket: this.bucket, Key: key }),
+    );
   }
 }

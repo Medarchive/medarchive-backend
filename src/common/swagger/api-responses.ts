@@ -32,7 +32,10 @@ export class ApiErrorResponse {
 }
 
 export class RegisterResponseData {
-  @ApiProperty({ example: 60, description: 'Seconds to wait before requesting another OTP' })
+  @ApiProperty({
+    example: 60,
+    description: 'Seconds to wait before requesting another OTP',
+  })
   declare resendAfterSeconds: number;
 }
 
@@ -56,7 +59,10 @@ export class LoginWithTokensData {
 }
 
 export class LoginWithNonceData {
-  @ApiProperty({ example: '01960000-0000-7000-0000-000000000000', description: 'Nonce to sign with Stellar keypair' })
+  @ApiProperty({
+    example: '01960000-0000-7000-0000-000000000000',
+    description: 'Nonce to sign with Stellar keypair',
+  })
   declare nonce: string;
 
   @ApiProperty({ example: true })
@@ -81,7 +87,10 @@ export class PatientProfileData {
   @ApiProperty({ example: '01960000-0000-7000-0000-000000000002' })
   declare userId: string;
 
-  @ApiProperty({ example: '01960000-0000-7000-0000-000000000003', description: 'Unique care identifier' })
+  @ApiProperty({
+    example: '01960000-0000-7000-0000-000000000003',
+    description: 'Unique care identifier',
+  })
   declare careId: string;
 
   @ApiProperty({ example: '2026-07-23T10:00:00.000Z' })

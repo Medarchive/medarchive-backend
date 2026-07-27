@@ -1,4 +1,11 @@
-import { IsDateString, IsISO31661Alpha2, IsOptional, IsString, IsMobilePhone, MinLength } from 'class-validator';
+import {
+  IsDateString,
+  IsISO31661Alpha2,
+  IsOptional,
+  IsString,
+  IsMobilePhone,
+  MinLength,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export class UpdatePersonalInfoDto {
@@ -19,7 +26,10 @@ export class UpdatePersonalInfoDto {
   @IsString()
   middleName?: string;
 
-  @ApiPropertyOptional({ example: '1990-05-15', description: 'ISO 8601 date (YYYY-MM-DD)' })
+  @ApiPropertyOptional({
+    example: '1990-05-15',
+    description: 'ISO 8601 date (YYYY-MM-DD)',
+  })
   @IsOptional()
   @IsDateString()
   dateOfBirth?: string;
@@ -58,7 +68,10 @@ export class UpdatePersonalInfoDto {
   @MinLength(1)
   postcode?: string;
 
-  @ApiPropertyOptional({ example: 'NG', description: 'ISO 3166-1 alpha-2 country code' })
+  @ApiPropertyOptional({
+    example: 'NG',
+    description: 'ISO 3166-1 alpha-2 country code',
+  })
   @IsOptional()
   @IsISO31661Alpha2()
   country?: string;

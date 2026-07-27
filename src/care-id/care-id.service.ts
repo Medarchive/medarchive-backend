@@ -33,7 +33,9 @@ export class CareIdService {
       .returning();
 
     await this.dashboard.invalidate(userId);
-    this.activityLog.log(userId, 'CARE_ID_GENERATED', { careId: created.careId });
+    this.activityLog.log(userId, 'CARE_ID_GENERATED', {
+      careId: created.careId,
+    });
     return created;
   }
 
@@ -59,19 +61,26 @@ export class CareIdService {
 
   async resolveShareLink(token: string) {
     const userId = await this.cache.get<string>(`care-id:share:${token}`);
-    if (!userId) throw new NotFoundException('Share link is invalid or has expired');
+    if (!userId)
+      throw new NotFoundException('Share link is invalid or has expired');
 
     const [careId, wallet, personalInfo] = await Promise.all([
-      this.db.query.patientCareIds.findFirst({ where: eq(patientCareIds.userId, userId) }),
+      this.db.query.patientCareIds.findFirst({
+        where: eq(patientCareIds.userId, userId),
+      }),
       this.db.query.wallets.findFirst({ where: eq(wallets.userId, userId) }),
-      this.db.query.userPersonalInfo.findFirst({ where: eq(userPersonalInfo.userId, userId) }),
+      this.db.query.userPersonalInfo.findFirst({
+        where: eq(userPersonalInfo.userId, userId),
+      }),
     ]);
 
     return {
       careId: careId?.careId ?? null,
       status: careId?.status ?? null,
       walletAddress: wallet?.address ?? null,
-      name: personalInfo ? `${personalInfo.firstName} ${personalInfo.lastName}` : null,
+      name: personalInfo
+        ? `${personalInfo.firstName} ${personalInfo.lastName}`
+        : null,
       createdAt: careId?.createdAt ?? null,
     };
   }

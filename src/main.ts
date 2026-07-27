@@ -138,4 +138,4 @@ async function bootstrap() {
   console.log(`MedArchive API running on port ${port} [${env().NODE_ENV}]`);
 }
 
-bootstrap();
+void bootstrap();

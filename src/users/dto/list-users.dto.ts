@@ -16,17 +16,27 @@ export enum UserSortBy {
 }
 
 export class ListUsersDto extends PaginationDto {
-  @ApiPropertyOptional({ enum: UserSortBy, default: UserSortBy.CREATED_AT, description: 'Field to sort by' })
+  @ApiPropertyOptional({
+    enum: UserSortBy,
+    default: UserSortBy.CREATED_AT,
+    description: 'Field to sort by',
+  })
   @IsOptional()
   @IsEnum(UserSortBy)
   sortBy: UserSortBy = UserSortBy.CREATED_AT;
 
-  @ApiPropertyOptional({ enum: UserRoleFilter, description: 'Filter by user role' })
+  @ApiPropertyOptional({
+    enum: UserRoleFilter,
+    description: 'Filter by user role',
+  })
   @IsOptional()
   @IsEnum(UserRoleFilter)
   role?: UserRoleFilter;
 
-  @ApiPropertyOptional({ example: 'john', description: 'Search by email (partial match)' })
+  @ApiPropertyOptional({
+    example: 'john',
+    description: 'Search by email (partial match)',
+  })
   @IsOptional()
   @IsString()
   search?: string;

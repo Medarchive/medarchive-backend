@@ -17,7 +17,13 @@ const ARGON2_OPTIONS: Parameters<typeof argon2.hash>[1] = {
 };
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { users, wallets, userPersonalInfo, patientProfiles, providerProfiles } from '../db/schema';
+import {
+  users,
+  wallets,
+  userPersonalInfo,
+  patientProfiles,
+  providerProfiles,
+} from '../db/schema';
 import type { UpdateProfileDto } from './dto/update-profile.dto';
 import type { ListUsersDto } from './dto/list-users.dto';
 import { SortOrder, buildMeta } from '../common/dto/pagination.dto';
@@ -40,7 +46,9 @@ export class UsersService {
 
     if (dto.newPassword) {
       if (!dto.currentPassword) {
-        throw new BadRequestException('currentPassword is required to set a new password');
+        throw new BadRequestException(
+          'currentPassword is required to set a new password',
+        );
       }
 
       const match = await argon2.verify(user.password, dto.currentPassword);
@@ -61,7 +69,11 @@ export class UsersService {
     if (dto.fullName) userUpdates.fullName = dto.fullName;
     if (dto.email) userUpdates.email = dto.email.toLowerCase();
     if (dto.phone) userUpdates.phone = dto.phone;
-    if (dto.newPassword) userUpdates.password = await argon2.hash(dto.newPassword, ARGON2_OPTIONS);
+    if (dto.newPassword)
+      userUpdates.password = (await argon2.hash(
+        dto.newPassword,
+        ARGON2_OPTIONS,
+      )) as string;
 
     if (Object.keys(userUpdates).length > 1) {
       await this.db.update(users).set(userUpdates).where(eq(users.id, user.id));
@@ -99,7 +111,8 @@ export class UsersService {
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
 
     const sortCol = users[dto.sortBy];
-    const orderExpr = dto.sortOrder === SortOrder.ASC ? asc(sortCol) : desc(sortCol);
+    const orderExpr =
+      dto.sortOrder === SortOrder.ASC ? asc(sortCol) : desc(sortCol);
 
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.users.findMany({
@@ -124,7 +137,8 @@ export class UsersService {
     });
 
     if (!profile) throw new NotFoundException('Provider profile not found');
-    if (profile.verifiedAt) throw new BadRequestException('Provider already verified');
+    if (profile.verifiedAt)
+      throw new BadRequestException('Provider already verified');
 
     await this.db
       .update(providerProfiles)
@@ -148,7 +162,13 @@ export class UsersService {
       }),
       this.db.query.wallets.findFirst({
         where: eq(wallets.userId, userId),
-        columns: { id: true, address: true, network: true, label: true, verifiedAt: true },
+        columns: {
+          id: true,
+          address: true,
+          network: true,
+          label: true,
+          verifiedAt: true,
+        },
       }),
     ]);
 
@@ -156,16 +176,31 @@ export class UsersService {
       const profile = await this.db.query.patientProfiles.findFirst({
         where: eq(patientProfiles.userId, userId),
       });
-      return { ...user, personalInfo: personalInfo ?? null, wallet: wallet ?? null, profile };
+      return {
+        ...user,
+        personalInfo: personalInfo ?? null,
+        wallet: wallet ?? null,
+        profile,
+      };
     }
 
     if (user.role === 'PROVIDER') {
       const profile = await this.db.query.providerProfiles.findFirst({
         where: eq(providerProfiles.userId, userId),
       });
-      return { ...user, personalInfo: personalInfo ?? null, wallet: wallet ?? null, profile };
+      return {
+        ...user,
+        personalInfo: personalInfo ?? null,
+        wallet: wallet ?? null,
+        profile,
+      };
     }
 
-    return { ...user, personalInfo: personalInfo ?? null, wallet: wallet ?? null, profile: null };
+    return {
+      ...user,
+      personalInfo: personalInfo ?? null,
+      wallet: wallet ?? null,
+      profile: null,
+    };
   }
 }

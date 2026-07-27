@@ -8,7 +8,11 @@ import { ActivityLogModule } from '../activity-log/activity-log.module';
 
 @Module({
   imports: [DashboardModule, ActivityLogModule],
-  controllers: [MedicalHistoryController, MedicalConditionsController, MedicalProfileController],
+  controllers: [
+    MedicalHistoryController,
+    MedicalConditionsController,
+    MedicalProfileController,
+  ],
   providers: [MedicalHistoryService],
   exports: [MedicalHistoryService],
 })

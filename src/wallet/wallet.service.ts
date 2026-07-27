@@ -1,4 +1,11 @@
-import { BadRequestException, ConflictException, Injectable, Inject, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Inject,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { eq } from 'drizzle-orm';
@@ -36,7 +43,8 @@ export class WalletService {
       where: eq(wallets.userId, userId),
     });
 
-    if (existing) throw new ConflictException('Wallet already linked to this account');
+    if (existing)
+      throw new ConflictException('Wallet already linked to this account');
 
     const network = dto.network ?? 'MAINNET';
 
@@ -48,7 +56,10 @@ export class WalletService {
     const nonce = uuidv7();
     await this.cache.set(this.nonceKey(userId), nonce, WALLET_NONCE_TTL_MS);
 
-    this.activityLog.log(userId, 'WALLET_LINKED', { address: dto.address, network });
+    this.activityLog.log(userId, 'WALLET_LINKED', {
+      address: dto.address,
+      network,
+    });
     return { wallet, nonce };
   }
 
@@ -63,7 +74,8 @@ export class WalletService {
       where: eq(wallets.userId, userId),
     });
 
-    if (!wallet) throw new NotFoundException('No wallet linked to this account');
+    if (!wallet)
+      throw new NotFoundException('No wallet linked to this account');
 
     if (!this.verifyStellarSignature(wallet.address, nonce, signature)) {
       throw new UnauthorizedException('Wallet signature verification failed');
@@ -77,10 +89,22 @@ export class WalletService {
       .where(eq(wallets.id, wallet.id))
       .returning();
 
-    this.activityLog.log(userId, 'WALLET_VERIFIED', { address: wallet.address });
+    this.activityLog.log(userId, 'WALLET_VERIFIED', {
+      address: wallet.address,
+    });
 
-    const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
-    if (user) this.mail.sendWalletLinked(user.email, user.fullName, wallet.address, wallet.network).catch(() => {});
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    if (user)
+      this.mail
+        .sendWalletLinked(
+          user.email,
+          user.fullName,
+          wallet.address,
+          wallet.network,
+        )
+        .catch(() => {});
 
     return updated;
   }
@@ -90,7 +114,8 @@ export class WalletService {
       where: eq(wallets.userId, userId),
     });
 
-    if (!wallet) throw new NotFoundException('No wallet linked to this account');
+    if (!wallet)
+      throw new NotFoundException('No wallet linked to this account');
 
     const balance = await this.fetchBalance(wallet.address, wallet.network);
 
@@ -120,23 +145,36 @@ export class WalletService {
       .where(eq(wallets.userId, userId))
       .returning();
 
-    if (!deleted) throw new NotFoundException('No wallet linked to this account');
+    if (!deleted)
+      throw new NotFoundException('No wallet linked to this account');
 
     this.activityLog.log(userId, 'WALLET_REMOVED');
   }
 
-  private verifyStellarSignature(publicKey: string, message: string, signature: string): boolean {
+  private verifyStellarSignature(
+    publicKey: string,
+    message: string,
+    signature: string,
+  ): boolean {
     try {
       const keypair = Keypair.fromPublicKey(publicKey);
-      return keypair.verify(Buffer.from(message, 'utf8'), Buffer.from(signature, 'hex'));
+      return keypair.verify(
+        Buffer.from(message, 'utf8'),
+        Buffer.from(signature, 'hex'),
+      );
     } catch {
       return false;
     }
   }
 
-  private async fetchBalance(address: string, network: string): Promise<string | null> {
+  private async fetchBalance(
+    address: string,
+    network: string,
+  ): Promise<string | null> {
     try {
-      const server = new Horizon.Server(horizonUrls[network] ?? horizonUrls.MAINNET);
+      const server = new Horizon.Server(
+        horizonUrls[network] ?? horizonUrls.MAINNET,
+      );
       const account = await server.loadAccount(address);
       const native = account.balances.find((b) => b.asset_type === 'native');
       return native?.balance ?? '0';

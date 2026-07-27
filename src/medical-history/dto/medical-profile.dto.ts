@@ -1,4 +1,11 @@
-import { IsEnum, IsNumber, IsBoolean, IsOptional, Min, Max } from 'class-validator';
+import {
+  IsEnum,
+  IsNumber,
+  IsBoolean,
+  IsOptional,
+  Min,
+  Max,
+} from 'class-validator';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum BloodGroup {

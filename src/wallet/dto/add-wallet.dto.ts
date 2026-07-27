@@ -7,7 +7,10 @@ export enum WalletNetwork {
 }
 
 export class AddWalletDto {
-  @ApiProperty({ example: 'GDRXE2BQUC3AZNPVFSCEZ76NJ3WWL25FYFK6RGZGIEKWE4SOOHSUJUJ', description: 'Stellar public key (G...)' })
+  @ApiProperty({
+    example: 'GDRXE2BQUC3AZNPVFSCEZ76NJ3WWL25FYFK6RGZGIEKWE4SOOHSUJUJ',
+    description: 'Stellar public key (G...)',
+  })
   @IsString()
   @IsNotEmpty()
   declare address: string;

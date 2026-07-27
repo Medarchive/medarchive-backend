@@ -29,7 +29,9 @@ export class ApiKeyGuard implements CanActivate {
 
     const ts = Number(timestamp);
     if (isNaN(ts) || Math.abs(Date.now() - ts) > TIMESTAMP_WINDOW_MS) {
-      throw new UnauthorizedException('Request timestamp out of acceptable window');
+      throw new UnauthorizedException(
+        'Request timestamp out of acceptable window',
+      );
     }
 
     const payload = `${apiKey}:${timestamp}`;

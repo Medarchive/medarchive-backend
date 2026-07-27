@@ -31,7 +31,7 @@ export class LoggingInterceptor implements NestInterceptor {
         const ms = Date.now() - startedAt;
         const status = res.statusCode;
         const userId = getContextUserId();
-        const responseSize = res.getHeader('content-length') ?? '-';
+        const responseSize = String(res.getHeader('content-length') ?? '-');
         const userPart = userId ? ` | userId=${userId}` : '';
 
         this.logger.log(
@@ -46,7 +46,9 @@ export class LoggingInterceptor implements NestInterceptor {
 
         this.logger.error(
           `Request Failed    | ${method} ${originalUrl} | status=${status} | duration=${ms}ms | requestId=${requestId} | errorCode=${errorCode} | message="${message}"`,
-          process.env.NODE_ENV !== 'production' ? (err as Error)?.stack : undefined,
+          process.env.NODE_ENV !== 'production'
+            ? (err as Error)?.stack
+            : undefined,
         );
 
         return throwError(() => err);
