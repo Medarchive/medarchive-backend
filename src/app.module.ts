@@ -20,7 +20,6 @@ import { HealthRecordsModule } from './health-records/health-records.module';
 import { EmergencyContactsModule } from './emergency-contacts/emergency-contacts.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
-import { MedicationsModule } from './medications/medications.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
@@ -66,7 +65,6 @@ import { env } from './config/env';
     EmergencyContactsModule,
     DashboardModule,
     WalletModule,
-    MedicationsModule,
     ActivityLogModule,
   ],
   providers: [

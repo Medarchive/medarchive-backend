@@ -11,6 +11,7 @@ import {
 import { sql } from 'drizzle-orm';
 
 export const userRoleEnum = pgEnum('user_role', ['PATIENT', 'PROVIDER', 'ADMIN']);
+export const genderEnum = pgEnum('gender', ['MALE', 'FEMALE']);
 
 export const users = pgTable(
   'users',
@@ -21,6 +22,7 @@ export const users = pgTable(
     phone: text('phone'),
     password: text('password').notNull(),
     role: userRoleEnum('role').notNull(),
+    gender: genderEnum('gender'),
     emailVerifiedAt: timestamp('email_verified_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

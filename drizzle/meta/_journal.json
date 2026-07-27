@@ -22,19 +22,82 @@
       "when": 1784809644405,
       "tag": "0002_grey_wong",
       "breakpoints": true
-    }
-    ,{
+    },
+    {
       "idx": 3,
       "version": "7",
       "when": 1753401600000,
       "tag": "0003_seed_medical_conditions",
       "breakpoints": true
-    }
-    ,{
+    },
+    {
       "idx": 4,
       "version": "7",
       "when": 1753488000000,
       "tag": "0004_activity_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1753574400000,
+      "tag": "0005_add_gender",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1753660800000,
+      "tag": "0006_health_records_allergies",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1753747200000,
+      "tag": "0007_optional_file_upload",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1753833600000,
+      "tag": "0008_health_record_files",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1753920000000,
+      "tag": "0009_allergy_as_record_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1754006400000,
+      "tag": "0010_medication_as_record_type",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1754092800000,
+      "tag": "0011_trgm_search_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1785089922588,
+      "tag": "0012_brainy_fixer",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1785090143211,
+      "tag": "0013_soft_human_torch",
       "breakpoints": true
     }
   ]

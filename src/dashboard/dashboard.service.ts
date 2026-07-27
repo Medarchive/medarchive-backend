@@ -12,6 +12,7 @@ import {
   emergencyContacts,
 } from '../db/schema';
 import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service';
+import { healthRecordFiles } from '../db/schema';
 import { WalletService } from '../wallet/wallet.service';
 
 export const dashboardCacheKey = (userId: string) => `dashboard:${userId}`;
@@ -52,6 +53,7 @@ export class DashboardService {
         where: eq(healthRecords.userId, userId),
         orderBy: [desc(healthRecords.createdAt)],
         limit: 6,
+        with: { files: true },
       }),
       this.db.query.patientCareIds.findFirst({
         where: eq(patientCareIds.userId, userId),
@@ -66,16 +68,24 @@ export class DashboardService {
     const now = Date.now();
     const refreshedRecords = await Promise.all(
       recentRecords.map(async (r) => {
-        const expiresAt = new Date(r.fileUrlExpiresAt).getTime();
-        if (expiresAt - now > PRESIGNED_URL_REFRESH_THRESHOLD_MS) return r;
+        if (r.files.length === 0) return r;
 
-        const { fileUrl, fileUrlExpiresAt } = await this.s3.getDownloadUrl(r.s3Key);
-        await this.db
-          .update(healthRecords)
-          .set({ fileUrl, fileUrlExpiresAt, updatedAt: new Date() })
-          .where(eq(healthRecords.id, r.id));
+        const refreshedFiles = await Promise.all(
+          r.files.map(async (f) => {
+            const expiresAt = new Date(f.fileUrlExpiresAt).getTime();
+            if (expiresAt - now > PRESIGNED_URL_REFRESH_THRESHOLD_MS) return f;
 
-        return { ...r, fileUrl, fileUrlExpiresAt };
+            const { fileUrl, fileUrlExpiresAt } = await this.s3.getDownloadUrl(f.s3Key);
+            await this.db
+              .update(healthRecordFiles)
+              .set({ fileUrl, fileUrlExpiresAt, updatedAt: new Date() })
+              .where(eq(healthRecordFiles.id, f.id));
+
+            return { ...f, fileUrl, fileUrlExpiresAt };
+          }),
+        );
+
+        return { ...r, files: refreshedFiles };
       }),
     );
 
