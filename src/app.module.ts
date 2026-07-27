@@ -21,6 +21,7 @@ import { EmergencyContactsModule } from './emergency-contacts/emergency-contacts
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
+import { ZkProofModule } from './zk-proof/zk-proof.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
@@ -66,6 +67,7 @@ import { env } from './config/env';
     DashboardModule,
     WalletModule,
     ActivityLogModule,
+    ZkProofModule,
   ],
   providers: [
     {

@@ -27,6 +27,7 @@ import {
   getSchemaPath,
 } from '@nestjs/swagger';
 import { HealthRecordsService } from './health-records.service';
+import { ZkProofService } from '../zk-proof/zk-proof.service';
 import { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { HealthRecordsQueryDto } from './dto/health-records-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -63,7 +64,10 @@ const multerOptions = {
 @UseGuards(JwtAuthGuard)
 @Controller('health-records')
 export class HealthRecordsController {
-  constructor(private readonly healthRecordsService: HealthRecordsService) {}
+  constructor(
+    private readonly healthRecordsService: HealthRecordsService,
+    private readonly zkProof: ZkProofService,
+  ) {}
 
   @Post()
   @Version('1')
@@ -143,6 +147,31 @@ export class HealthRecordsController {
   @ApiResponse({ status: 404, description: 'Record not found.', type: ApiErrorResponse })
   findOne(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
     return this.healthRecordsService.findOne(user.sub, id);
+  }
+
+  @Get(':id/proof')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Proof status fetched successfully')
+  @ApiOperation({ summary: 'Get ZK proof status for a health record' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
+  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  getProofStatus(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.healthRecordsService.findOne(user.sub, id).then(() => this.zkProof.getStatus(id));
+  }
+
+  @Post(':id/verify-proof')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Proof verified')
+  @ApiOperation({ summary: 'Verify ZK proof integrity of a health record', description: 'Used by providers to confirm a record has not been tampered with.' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] } })
+  @ApiResponse({ status: 400, description: 'Proof pending or failed.', type: ApiErrorResponse })
+  @ApiResponse({ status: 404, description: 'No proof found.', type: ApiErrorResponse })
+  verifyProof(@CurrentUser() user: JwtPayload, @Param('id', ParseUUIDPipe) id: string) {
+    return this.healthRecordsService.findOne(user.sub, id).then(() => this.zkProof.verify(id));
   }
 
   @Delete(':id')

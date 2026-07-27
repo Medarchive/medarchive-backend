@@ -4,9 +4,10 @@ import { HealthRecordsService } from './health-records.service';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
 import { MailModule } from '../mail/mail.module';
+import { ZkProofModule } from '../zk-proof/zk-proof.module';
 
 @Module({
-  imports: [DashboardModule, ActivityLogModule, MailModule],
+  imports: [DashboardModule, ActivityLogModule, MailModule, ZkProofModule],
   controllers: [HealthRecordsController],
   providers: [HealthRecordsService],
   exports: [HealthRecordsService],

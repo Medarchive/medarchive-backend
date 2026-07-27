@@ -28,6 +28,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1093.0",
     "@aws-sdk/s3-request-presigner": "^3.1093.0",
+    "@ethersproject/bignumber": "^5.8.0",
     "@keyv/redis": "^5.1.6",
     "@nest-lab/throttler-storage-redis": "^1.2.0",
     "@nestjs/bullmq": "^11.0.4",
@@ -43,6 +44,7 @@
     "@nestjs/swagger": "^11.4.6",
     "@nestjs/throttler": "^6.5.0",
     "@stellar/stellar-sdk": "^16.0.1",
+    "@zk-kit/poseidon-proof": "1.0.0-beta.6",
     "argon2": "^0.45.0",
     "bullmq": "^5.80.9",
     "cache-manager": "^7.2.9",
@@ -53,6 +55,7 @@
     "csrf-csrf": "^4.0.3",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
+    "ethers": "^6.17.0",
     "helmet": "^8.3.0",
     "keyv": "^5.6.0",
     "nestjs-pino": "^4.6.1",

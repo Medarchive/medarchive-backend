@@ -2,6 +2,7 @@ import { pgTable, text, uuid, timestamp, pgEnum, index, date } from 'drizzle-orm
 import { relations, sql } from 'drizzle-orm';
 import { users } from './users';
 import { healthRecordFiles } from './health-record-files';
+import { healthRecordProofs } from './zk-proofs';
 
 export const healthRecordTypeEnum = pgEnum('health_record_type', [
   'BLOOD_TEST',
@@ -60,6 +61,10 @@ export const healthRecords = pgTable(
   ],
 );
 
-export const healthRecordsRelations = relations(healthRecords, ({ many }) => ({
+export const healthRecordsRelations = relations(healthRecords, ({ many, one }) => ({
   files: many(healthRecordFiles),
+  proof: one(healthRecordProofs, {
+    fields: [healthRecords.id],
+    references: [healthRecordProofs.healthRecordId],
+  }),
 }));

@@ -8,6 +8,7 @@ import { S3Service, PRESIGNED_URL_REFRESH_THRESHOLD_MS } from '../s3/s3.service'
 import { DashboardService } from '../dashboard/dashboard.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { MailService } from '../mail/mail.service';
+import { ZkProofService } from '../zk-proof/zk-proof.service';
 import type { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { SortOrder } from '../common/dto/pagination.dto';
 import { buildMeta } from '../common/dto/pagination.dto';
@@ -23,6 +24,7 @@ export class HealthRecordsService {
     private readonly dashboard: DashboardService,
     private readonly activityLog: ActivityLogService,
     private readonly mail: MailService,
+    private readonly zkProof: ZkProofService,
   ) {}
 
   async upload(userId: string, files: Express.Multer.File[], dto: CreateHealthRecordDto) {
@@ -80,6 +82,13 @@ export class HealthRecordsService {
 
     const user = await this.db.query.users.findFirst({ where: eq(users.id, userId) });
     if (user) this.mail.sendHealthRecordUploaded(user.email, user.fullName, dto.title, dto.recordType).catch(() => {});
+
+    this.zkProof.enqueue({
+      recordId: record.id,
+      userId,
+      recordType: dto.recordType,
+      fileS3Keys: fileRows.map((f) => f.s3Key),
+    }).catch(() => {});
 
     return this.findOne(userId, record.id);
   }

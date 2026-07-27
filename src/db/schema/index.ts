@@ -6,3 +6,4 @@ export * from './health-record-files';
 export * from './care-id';
 export * from './emergency-contacts';
 export * from './activity-logs';
+export * from './zk-proofs';
