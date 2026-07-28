@@ -30,6 +30,7 @@ const envSchema = z.object({
   S3_SECRET_ACCESS_KEY: z.string(),
   S3_BUCKET: z.string(),
 
+  STELLAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   STELLAR_ANCHOR_SECRET: z.string().min(56),
   WALLET_ENCRYPTION_KEY: z.string().length(64),
 });

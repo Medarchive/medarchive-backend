@@ -97,7 +97,7 @@ export class AuthService {
     await this.db.insert(wallets).values({
       userId,
       address: keypair.publicKey(),
-      network: env().NODE_ENV === 'production' ? 'MAINNET' : 'TESTNET',
+      network: env().STELLAR_NETWORK === 'mainnet' ? 'MAINNET' : 'TESTNET',
       encryptedSecret,
     });
     this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});

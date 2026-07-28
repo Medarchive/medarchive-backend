@@ -17,13 +17,13 @@ export class StellarService {
   private fundQueue: Promise<unknown> = Promise.resolve();
 
   private get networkUrl(): string {
-    return env().NODE_ENV === 'production'
+    return env().STELLAR_NETWORK === 'mainnet'
       ? 'https://horizon.stellar.org'
       : 'https://horizon-testnet.stellar.org';
   }
 
   private get networkPassphrase(): string {
-    return env().NODE_ENV === 'production' ? Networks.PUBLIC : Networks.TESTNET;
+    return env().STELLAR_NETWORK === 'mainnet' ? Networks.PUBLIC : Networks.TESTNET;
   }
 
   private commitmentToHash(commitment: string): Buffer {
