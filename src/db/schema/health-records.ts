@@ -44,22 +44,17 @@ export const healthRecords = pgTable(
       .references(() => users.id, { onDelete: 'cascade' }),
     title: text('title').notNull(),
     recordType: healthRecordTypeEnum('record_type').notNull(),
-    // LAB_TEST fields
     testName: text('test_name'),
     referredBy: text('referred_by'),
-    // PRESCRIPTION fields
     drugClass: text('drug_class'),
     prescribedBy: text('prescribed_by'),
-    // MEDICATION fields
     drug: text('drug'),
     dosage: text('dosage'),
     frequency: text('frequency'),
     endDate: date('end_date'),
-    // ALLERGY fields
     allergyType: allergyTypeEnum('allergy_type'),
     cause: text('cause'),
     management: text('management'),
-    // shared optional fields
     recordDate: date('record_date'),
     description: text('description'),
     zkVerified: boolean('zk_verified').notNull().default(false),

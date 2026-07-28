@@ -13,20 +13,17 @@ export class S3Service {
   private readonly bucket: string;
 
   constructor() {
-    const {
-      AWS_REGION,
-      AWS_ACCESS_KEY_ID,
-      AWS_SECRET_ACCESS_KEY,
-      AWS_S3_BUCKET,
-    } = env();
+    const { S3_ENDPOINT_URL, S3_REGION, S3_ACCESS_KEY_ID, S3_SECRET_ACCESS_KEY, S3_BUCKET } = env();
     this.client = new S3Client({
-      region: AWS_REGION,
+      endpoint: S3_ENDPOINT_URL,
+      region: S3_REGION,
       credentials: {
-        accessKeyId: AWS_ACCESS_KEY_ID,
-        secretAccessKey: AWS_SECRET_ACCESS_KEY,
+        accessKeyId: S3_ACCESS_KEY_ID,
+        secretAccessKey: S3_SECRET_ACCESS_KEY,
       },
+      forcePathStyle: true,
     });
-    this.bucket = AWS_S3_BUCKET;
+    this.bucket = S3_BUCKET;
   }
 
   async upload(

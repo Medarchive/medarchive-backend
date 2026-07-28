@@ -8,6 +8,7 @@ import {
   HttpStatus,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UploadedFiles,
@@ -30,6 +31,8 @@ import { HealthRecordsService } from './health-records.service';
 import { ZkProofService } from '../zk-proof/zk-proof.service';
 import { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { HealthRecordsQueryDto } from './dto/health-records-query.dto';
+import { RecordRequestsQueryDto } from './dto/record-requests-query.dto';
+import { RespondToRequestDto } from './dto/respond-to-request.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
@@ -314,7 +317,65 @@ export class HealthRecordsController {
   ) {
     return this.healthRecordsService
       .findOne(user.sub, id)
-      .then(() => this.zkProof.verify(id));
+      .then(() => this.zkProof.verify(id, user.sub));
+  }
+
+  @Get('access-requests')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Access requests fetched successfully')
+  @ApiOperation({
+    summary: 'List provider record access requests for the logged-in patient',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  getAccessRequests(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: RecordRequestsQueryDto,
+  ) {
+    return this.healthRecordsService.getAccessRequests(user.sub, query);
+  }
+
+  @Patch('access-requests/:id')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Request updated successfully')
+  @ApiOperation({
+    summary: 'Approve or decline a provider record access request',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Request already responded to.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Request not found.',
+    type: ApiErrorResponse,
+  })
+  respondToAccessRequest(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RespondToRequestDto,
+  ) {
+    return this.healthRecordsService.respondToAccessRequest(user.sub, id, dto);
   }
 
   @Delete(':id')

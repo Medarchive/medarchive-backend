@@ -7,3 +7,5 @@ export * from './care-id';
 export * from './emergency-contacts';
 export * from './activity-logs';
 export * from './zk-proofs';
+export * from './invitations';
+export * from './provider-record-requests';

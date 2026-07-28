@@ -6,7 +6,9 @@ import { createHash } from 'crypto';
 import { generate } from '@zk-kit/poseidon-proof';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { healthRecordProofs, healthRecords } from '../db/schema';
+import { healthRecordProofs, healthRecords, wallets } from '../db/schema';
+import { StellarService } from '../wallet/stellar.service';
+import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
 
 export const ZK_PROOF_QUEUE = 'zk-proof';
 
@@ -38,7 +40,11 @@ function buildPreimages(data: ZkProofJobData): bigint[] {
 export class ZkProofProcessor extends WorkerHost {
   private readonly logger = new Logger(ZkProofProcessor.name);
 
-  constructor(@Inject(DB) private readonly db: Database) {
+  constructor(
+    @Inject(DB) private readonly db: Database,
+    private readonly stellar: StellarService,
+    private readonly walletEncryption: WalletEncryptionService,
+  ) {
     super();
   }
 
@@ -47,7 +53,6 @@ export class ZkProofProcessor extends WorkerHost {
 
     try {
       const preimages = buildPreimages(job.data);
-      // scope = recordId (public context); preimages = private inputs
       const poseidonProof = await generate(preimages, recordId);
 
       await Promise.all([
@@ -73,6 +78,16 @@ export class ZkProofProcessor extends WorkerHost {
       this.logger.log(
         `ZK proof generated recordId=${recordId} commitment=${poseidonProof.digest}`,
       );
+
+      this.anchorFromUserWallet(
+        job.data.userId,
+        recordId,
+        poseidonProof.digest as string,
+      ).catch((err) =>
+        this.logger.warn(
+          `Stellar anchoring failed recordId=${recordId}: ${String(err)}`,
+        ),
+      );
     } catch (err) {
       this.logger.error(`ZK proof failed recordId=${recordId}`, err);
 
@@ -84,5 +99,22 @@ export class ZkProofProcessor extends WorkerHost {
         })
         .where(eq(healthRecordProofs.healthRecordId, recordId));
     }
+  }
+
+  private async anchorFromUserWallet(
+    userId: string,
+    recordId: string,
+    commitment: string,
+  ): Promise<void> {
+    const wallet = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, userId),
+    });
+    if (!wallet?.encryptedSecret) return;
+    const secret = this.walletEncryption.decrypt(wallet.encryptedSecret);
+    const txHash = await this.stellar.submitVerificationTx(secret, commitment);
+    await this.db
+      .update(healthRecordProofs)
+      .set({ anchorTxHash: txHash })
+      .where(eq(healthRecordProofs.healthRecordId, recordId));
   }
 }

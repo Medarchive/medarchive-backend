@@ -38,7 +38,6 @@ export class CreateHealthRecordDto {
   @IsEnum(HealthRecordType)
   declare recordType: HealthRecordType;
 
-  // LAB_TEST — testName required
   @ApiPropertyOptional({
     example: 'Complete Blood Count',
     description: 'Required for LAB_TEST',
@@ -60,7 +59,6 @@ export class CreateHealthRecordDto {
   @IsString()
   declare referredBy?: string;
 
-  // PRESCRIPTION
   @ApiPropertyOptional({
     example: 'Antibiotic',
     description: 'PRESCRIPTION: drug class',
@@ -79,7 +77,6 @@ export class CreateHealthRecordDto {
   @IsString()
   declare prescribedBy?: string;
 
-  // MEDICATION — drug required
   @ApiPropertyOptional({
     example: 'Amoxicillin',
     description: 'Required for MEDICATION',
@@ -119,7 +116,6 @@ export class CreateHealthRecordDto {
   @IsDateString()
   declare endDate?: string;
 
-  // ALLERGY — allergyType and cause required
   @ApiPropertyOptional({
     enum: AllergyType,
     description: 'Required for ALLERGY',
@@ -152,7 +148,6 @@ export class CreateHealthRecordDto {
   @IsString()
   declare management?: string;
 
-  // shared
   @ApiPropertyOptional({
     example: '2026-07-26',
     description: 'Date of test / prescription / medication',

@@ -24,10 +24,14 @@ const envSchema = z.object({
 
   APP_URL: z.string().default('https://medarchive.africa'),
 
-  AWS_REGION: z.string(),
-  AWS_ACCESS_KEY_ID: z.string(),
-  AWS_SECRET_ACCESS_KEY: z.string(),
-  AWS_S3_BUCKET: z.string(),
+  S3_ENDPOINT_URL: z.url(),
+  S3_REGION: z.string().default('auto'),
+  S3_ACCESS_KEY_ID: z.string(),
+  S3_SECRET_ACCESS_KEY: z.string(),
+  S3_BUCKET: z.string(),
+
+  STELLAR_ANCHOR_SECRET: z.string().min(56),
+  WALLET_ENCRYPTION_KEY: z.string().length(64),
 });
 
 export type Env = z.infer<typeof envSchema>;

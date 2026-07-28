@@ -11,14 +11,18 @@ import { verify } from '@zk-kit/poseidon-proof';
 import type { PoseidonProof } from '@zk-kit/poseidon-proof';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { healthRecordProofs } from '../db/schema';
+import { healthRecordProofs, wallets } from '../db/schema';
 import { ZK_PROOF_QUEUE, type ZkProofJobData } from './zk-proof.processor';
+import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
+import { StellarService } from '../wallet/stellar.service';
 
 @Injectable()
 export class ZkProofService {
   constructor(
     @Inject(DB) private readonly db: Database,
     @InjectQueue(ZK_PROOF_QUEUE) private readonly queue: Queue<ZkProofJobData>,
+    private readonly walletEncryption: WalletEncryptionService,
+    private readonly stellar: StellarService,
   ) {}
 
   async enqueue(data: ZkProofJobData): Promise<void> {
@@ -30,7 +34,13 @@ export class ZkProofService {
 
   async verify(
     recordId: string,
-  ): Promise<{ valid: boolean; commitment: string }> {
+    patientUserId: string,
+  ): Promise<{
+    valid: boolean;
+    commitment: string;
+    anchorTxHash: string | null;
+    verificationTxHash: string | null;
+  }> {
     const row = await this.db.query.healthRecordProofs.findFirst({
       where: eq(healthRecordProofs.healthRecordId, recordId),
     });
@@ -50,7 +60,33 @@ export class ZkProofService {
     };
 
     const valid = await verify(poseidonProof);
-    return { valid, commitment: row.commitment! };
+
+    let verificationTxHash: string | null = row.verificationTxHash ?? null;
+    const wallet = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, patientUserId),
+    });
+
+    if (wallet?.encryptedSecret) {
+      const decryptedSecret = this.walletEncryption.decrypt(
+        wallet.encryptedSecret,
+      );
+      const txHash = await this.stellar.submitVerificationTx(
+        decryptedSecret,
+        row.commitment!,
+      );
+      verificationTxHash = txHash;
+      await this.db
+        .update(healthRecordProofs)
+        .set({ verificationTxHash: txHash })
+        .where(eq(healthRecordProofs.healthRecordId, recordId));
+    }
+
+    return {
+      valid,
+      commitment: row.commitment!,
+      anchorTxHash: row.anchorTxHash ?? null,
+      verificationTxHash,
+    };
   }
 
   async getStatus(recordId: string) {

@@ -8,7 +8,13 @@ import { and, desc, eq, gte, ilike, lte } from 'drizzle-orm';
 import { randomUUID } from 'crypto';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
-import { healthRecords, healthRecordFiles, users } from '../db/schema';
+import {
+  healthRecords,
+  healthRecordFiles,
+  users,
+  providerRecordRequests,
+  providerProfiles,
+} from '../db/schema';
 import {
   S3Service,
   PRESIGNED_URL_REFRESH_THRESHOLD_MS,
@@ -23,6 +29,8 @@ import { SortOrder } from '../common/dto/pagination.dto';
 import { buildMeta } from '../common/dto/pagination.dto';
 import type { HealthRecordsQueryDto } from './dto/health-records-query.dto';
 import { HealthRecordSortBy } from './dto/health-records-query.dto';
+import type { RecordRequestsQueryDto } from './dto/record-requests-query.dto';
+import type { RespondToRequestDto } from './dto/respond-to-request.dto';
 import { count } from 'drizzle-orm';
 
 @Injectable()
@@ -78,33 +86,37 @@ export class HealthRecordsService {
           )
         : [];
 
-    const [record] = await this.db
-      .insert(healthRecords)
-      .values({
-        userId,
-        title: dto.title,
-        recordType: dto.recordType,
-        testName: dto.testName,
-        referredBy: dto.referredBy,
-        drugClass: dto.drugClass,
-        prescribedBy: dto.prescribedBy,
-        drug: dto.drug,
-        dosage: dto.dosage,
-        frequency: dto.frequency,
-        endDate: dto.endDate,
-        allergyType: dto.allergyType,
-        cause: dto.cause,
-        management: dto.management,
-        recordDate: dto.recordDate,
-        description: dto.description,
-      })
-      .returning();
+    const record = await this.db.transaction(async (tx) => {
+      const [created] = await tx
+        .insert(healthRecords)
+        .values({
+          userId,
+          title: dto.title,
+          recordType: dto.recordType,
+          testName: dto.testName,
+          referredBy: dto.referredBy,
+          drugClass: dto.drugClass,
+          prescribedBy: dto.prescribedBy,
+          drug: dto.drug,
+          dosage: dto.dosage,
+          frequency: dto.frequency,
+          endDate: dto.endDate,
+          allergyType: dto.allergyType,
+          cause: dto.cause,
+          management: dto.management,
+          recordDate: dto.recordDate,
+          description: dto.description,
+        })
+        .returning();
 
-    if (fileRows.length > 0) {
-      await this.db
-        .insert(healthRecordFiles)
-        .values(fileRows.map((f) => ({ ...f, healthRecordId: record.id })));
-    }
+      if (fileRows.length > 0) {
+        await tx
+          .insert(healthRecordFiles)
+          .values(fileRows.map((f) => ({ ...f, healthRecordId: created.id })));
+      }
+
+      return created;
+    });
 
     await this.dashboard.invalidate(userId);
     this.activityLog.log(userId, 'HEALTH_RECORD_UPLOADED', {
@@ -218,6 +230,83 @@ export class HealthRecordsService {
       recordId: id,
       title: record.title,
     });
+  }
+
+  async getAccessRequests(patientId: string, query: RecordRequestsQueryDto) {
+    const { page, take, status } = query;
+    const offset = (page - 1) * take;
+
+    const where = and(
+      eq(providerRecordRequests.patientId, patientId),
+      status ? eq(providerRecordRequests.status, status) : undefined,
+    );
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db
+        .select({
+          id: providerRecordRequests.id,
+          patientId: providerRecordRequests.patientId,
+          providerId: providerRecordRequests.providerId,
+          requestType: providerRecordRequests.requestType,
+          note: providerRecordRequests.note,
+          status: providerRecordRequests.status,
+          createdAt: providerRecordRequests.createdAt,
+          updatedAt: providerRecordRequests.updatedAt,
+          providerName: users.fullName,
+          organizationName: providerProfiles.organizationName,
+          providerType: providerProfiles.providerType,
+        })
+        .from(providerRecordRequests)
+        .innerJoin(users, eq(users.id, providerRecordRequests.providerId))
+        .leftJoin(
+          providerProfiles,
+          eq(providerProfiles.userId, providerRecordRequests.providerId),
+        )
+        .where(where)
+        .orderBy(desc(providerRecordRequests.createdAt))
+        .limit(take)
+        .offset(offset),
+      this.db
+        .select({ total: count() })
+        .from(providerRecordRequests)
+        .where(where),
+    ]);
+
+    return {
+      data: rows,
+      meta: buildMeta(total, page, take, rows.length),
+    };
+  }
+
+  async respondToAccessRequest(
+    patientId: string,
+    requestId: string,
+    dto: RespondToRequestDto,
+  ) {
+    const [updated] = await this.db
+      .update(providerRecordRequests)
+      .set({ status: dto.status, updatedAt: new Date() })
+      .where(
+        and(
+          eq(providerRecordRequests.id, requestId),
+          eq(providerRecordRequests.patientId, patientId),
+          eq(providerRecordRequests.status, 'PENDING'),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      const existing = await this.db.query.providerRecordRequests.findFirst({
+        where: and(
+          eq(providerRecordRequests.id, requestId),
+          eq(providerRecordRequests.patientId, patientId),
+        ),
+      });
+      if (!existing) throw new NotFoundException('Request not found');
+      throw new BadRequestException('Request already responded to');
+    }
+
+    return updated;
   }
 
   private async refreshFiles<

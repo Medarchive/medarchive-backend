@@ -28,6 +28,8 @@ export const healthRecordProofs = pgTable('health_record_proofs', {
   proof: jsonb('proof'),
   publicSignals: jsonb('public_signals'),
   error: text('error'),
+  anchorTxHash: text('anchor_tx_hash'),
+  verificationTxHash: text('verification_tx_hash'),
   generatedAt: timestamp('generated_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true })
     .notNull()

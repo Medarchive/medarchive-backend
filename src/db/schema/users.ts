@@ -8,7 +8,17 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
-import { sql } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
+import { providerRecordRequests } from './provider-record-requests';
+
+export const providerTypeEnum = pgEnum('provider_type_enum', [
+  'LAB',
+  'HOSPITAL',
+  'CLINIC',
+  'PHARMACY',
+  'SPECIALIST',
+  'OTHER',
+]);
 
 export const userRoleEnum = pgEnum('user_role', [
   'PATIENT',
@@ -104,6 +114,14 @@ export const providerProfiles = pgTable(
     specialty: text('specialty'),
     licenseNumber: text('license_number'),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
+    title: text('title'),
+    firstName: text('first_name'),
+    lastName: text('last_name'),
+    organizationName: text('organization_name'),
+    workAddress: text('work_address'),
+    providerType: providerTypeEnum('provider_type'),
+    profilePictureUrl: text('profile_picture_url'),
+    profilePictureS3Key: text('profile_picture_s3_key'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
       .defaultNow(),
@@ -139,3 +157,12 @@ export const refreshTokens = pgTable(
     index('refresh_tokens_expires_idx').on(t.expiresAt),
   ],
 );
+
+export const usersRelations = relations(users, ({ many }) => ({
+  patientRequests: many(providerRecordRequests, {
+    relationName: 'patientRequests',
+  }),
+  providerRequests: many(providerRecordRequests, {
+    relationName: 'providerRequests',
+  }),
+}));

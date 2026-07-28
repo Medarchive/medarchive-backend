@@ -22,6 +22,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { WalletModule } from './wallet/wallet.module';
 import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ZkProofModule } from './zk-proof/zk-proof.module';
+import { AdminModule } from './admin/admin.module';
+import { ProviderProfileModule } from './provider-profile/provider-profile.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
@@ -68,6 +70,8 @@ import { env } from './config/env';
     WalletModule,
     ActivityLogModule,
     ZkProofModule,
+    AdminModule,
+    ProviderProfileModule,
   ],
   providers: [
     {

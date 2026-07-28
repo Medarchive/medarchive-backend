@@ -9,7 +9,7 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { eq, and, isNull, gt } from 'drizzle-orm';
+import { sql as rawSql, eq, and, isNull, gt } from 'drizzle-orm';
 import * as argon2 from 'argon2';
 import { Keypair } from '@stellar/stellar-sdk';
 import { uuidv7 } from 'uuidv7';
@@ -23,9 +23,12 @@ import {
   patientProfiles,
   providerProfiles,
   refreshTokens,
+  providerInvitations,
 } from '../db/schema';
 import { MailService } from '../mail/mail.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
+import { StellarService } from '../wallet/stellar.service';
 import { setContextUserId } from '../common/context/request.context';
 import type { RegisterDto } from './dto/register.dto';
 import { RegisterRole } from './dto/register.dto';
@@ -52,6 +55,8 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly mail: MailService,
     private readonly activityLog: ActivityLogService,
+    private readonly walletEncryption: WalletEncryptionService,
+    private readonly stellar: StellarService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -86,6 +91,16 @@ export class AuthService {
 
       return user.id;
     });
+
+    const keypair = Keypair.random();
+    const encryptedSecret = this.walletEncryption.encrypt(keypair.secret());
+    await this.db.insert(wallets).values({
+      userId,
+      address: keypair.publicKey(),
+      network: env().NODE_ENV === 'production' ? 'MAINNET' : 'TESTNET',
+      encryptedSecret,
+    });
+    this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});
 
     const { resendAfterSeconds } = await this.sendOtp(
       dto.email.toLowerCase(),
@@ -294,7 +309,7 @@ export class AuthService {
     return null;
   }
 
-  private readonly RESET_TTL_MS = 15 * 60 * 1000; // 15 min
+  private readonly RESET_TTL_MS = 15 * 60 * 1000;
   private resetKey(token: string) {
     return `pwd:reset:${token}`;
   }
@@ -303,7 +318,6 @@ export class AuthService {
     const user = await this.db.query.users.findFirst({
       where: eq(users.email, email.toLowerCase()),
     });
-    // Always return success to avoid user enumeration
     if (!user) return null;
 
     const token = uuidv7();
@@ -330,6 +344,73 @@ export class AuthService {
       .where(eq(users.id, userId));
     await this.cache.del(this.resetKey(token));
     return null;
+  }
+
+  async activateProvider(rawToken: string, password: string) {
+    const tokenHash = this.hashToken(rawToken);
+
+    const passwordHash = (await argon2.hash(
+      password,
+      ARGON2_OPTIONS,
+    )) as string;
+
+    const newUser = await this.db.transaction(async (tx) => {
+      type InviteRow = {
+        id: string;
+        email: string;
+        name: string;
+        expires_at: string;
+        used_at: string | null;
+      };
+
+      const result = await tx.execute(
+        rawSql`
+          SELECT id, email, name, expires_at, used_at
+          FROM provider_invitations
+          WHERE token_hash = ${tokenHash}
+          FOR UPDATE
+        `,
+      );
+
+      const invite = (result as unknown as InviteRow[])[0];
+
+      if (!invite) throw new BadRequestException('Invalid activation token');
+      if (invite.used_at !== null)
+        throw new BadRequestException('Activation token has already been used');
+      if (new Date(invite.expires_at) <= new Date())
+        throw new BadRequestException('Activation token has expired');
+
+      const existingUser = await tx.query.users.findFirst({
+        where: eq(users.email, invite.email),
+      });
+      if (existingUser)
+        throw new ConflictException(
+          'An account with this email already exists',
+        );
+
+      const [created] = await tx
+        .insert(users)
+        .values({
+          fullName: invite.name,
+          email: invite.email,
+          password: passwordHash,
+          role: 'PROVIDER',
+          emailVerifiedAt: new Date(),
+        })
+        .returning();
+
+      await tx.insert(providerProfiles).values({ userId: created.id });
+
+      await tx
+        .update(providerInvitations)
+        .set({ usedAt: new Date() })
+        .where(eq(providerInvitations.id, invite.id));
+
+      return created;
+    });
+
+    this.logger.log(`Provider account activated email=${newUser.email}`);
+    return this.issueTokens(newUser, null);
   }
 
   private async issueTokens(

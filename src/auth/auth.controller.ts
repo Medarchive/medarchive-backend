@@ -25,6 +25,7 @@ import { RefreshDto } from './dto/refresh.dto';
 import { WalletNonceDto, WalletLoginDto } from './dto/wallet-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ActivateDto } from './dto/activate.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
 import {
@@ -342,6 +343,46 @@ export class AuthController {
   })
   refresh(@Body() dto: RefreshDto) {
     return this.authService.refresh(dto.refreshToken);
+  }
+
+  @Post('activate')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ auth: { limit: 5, ttl: 60_000 } })
+  @ResponseMessage('Account activated successfully')
+  @ApiOperation({
+    summary: 'Activate provider account',
+    description:
+      'Accepts the token from a provider invitation link and a chosen password. Creates the provider account, marks the invitation as used, and returns JWT tokens — provider is logged in immediately.',
+  })
+  @ApiBody({ type: ActivateDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Account activated. Returns JWT access + refresh tokens.',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            message: { example: 'Account activated successfully' },
+            data: { $ref: getSchemaPath(LoginWithTokensData) },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Token invalid, expired, or already used.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Email already registered.',
+    type: ApiErrorResponse,
+  })
+  activate(@Body() dto: ActivateDto) {
+    return this.authService.activateProvider(dto.token, dto.password);
   }
 
   @Post('logout')

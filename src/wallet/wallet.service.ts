@@ -119,7 +119,9 @@ export class WalletService {
 
     const balance = await this.fetchBalance(wallet.address, wallet.network);
 
-    return { ...wallet, balance };
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { encryptedSecret: _omit, ...safeWallet } = wallet;
+    return { ...safeWallet, balance };
   }
 
   async getForDashboard(userId: string) {

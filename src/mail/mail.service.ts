@@ -94,6 +94,18 @@ export class MailService {
     await this.send(email, 'Health record saved — MedArchive', html);
   }
 
+  async sendProviderInvitation(
+    email: string,
+    name: string,
+    activationLink: string,
+  ): Promise<void> {
+    const html = loadTemplate('provider-invitation', {
+      NAME: name,
+      ACTIVATION_LINK: activationLink,
+    });
+    await this.send(email, "You've been invited to MedArchive Africa", html);
+  }
+
   async sendEmergencyContactAdded(
     contactEmail: string,
     contactName: string,

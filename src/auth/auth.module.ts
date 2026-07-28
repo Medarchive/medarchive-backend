@@ -7,10 +7,12 @@ import { AuthController } from './auth.controller';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { env } from '../config/env';
 import { ActivityLogModule } from '../activity-log/activity-log.module';
+import { WalletModule } from '../wallet/wallet.module';
 
 @Module({
   imports: [
     ActivityLogModule,
+    WalletModule,
     PassportModule,
     JwtModule.registerAsync({
       useFactory: () => ({
