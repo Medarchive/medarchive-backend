@@ -15,6 +15,7 @@ import { healthRecordProofs, wallets } from '../db/schema';
 import { ZK_PROOF_QUEUE, type ZkProofJobData } from './zk-proof.processor';
 import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
 import { StellarService } from '../wallet/stellar.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class ZkProofService {
@@ -23,6 +24,7 @@ export class ZkProofService {
     @InjectQueue(ZK_PROOF_QUEUE) private readonly queue: Queue<ZkProofJobData>,
     private readonly walletEncryption: WalletEncryptionService,
     private readonly stellar: StellarService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async enqueue(data: ZkProofJobData): Promise<void> {
@@ -79,6 +81,13 @@ export class ZkProofService {
         .update(healthRecordProofs)
         .set({ verificationTxHash: txHash })
         .where(eq(healthRecordProofs.healthRecordId, recordId));
+      this.notifications.push(
+        patientUserId,
+        'VERIFICATION_TX_CHARGED',
+        'Verification Transaction Charged',
+        'A small XLM fee was deducted from your wallet to verify your health record proof on the Stellar blockchain.',
+        { recordId, txHash },
+      );
     }
 
     return {

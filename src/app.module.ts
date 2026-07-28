@@ -24,6 +24,7 @@ import { ActivityLogModule } from './activity-log/activity-log.module';
 import { ZkProofModule } from './zk-proof/zk-proof.module';
 import { AdminModule } from './admin/admin.module';
 import { ProviderProfileModule } from './provider-profile/provider-profile.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
@@ -72,6 +73,7 @@ import { env } from './config/env';
     ZkProofModule,
     AdminModule,
     ProviderProfileModule,
+    NotificationsModule,
   ],
   providers: [
     {

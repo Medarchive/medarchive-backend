@@ -23,6 +23,7 @@ import {
 import { healthRecordFiles } from '../db/schema';
 import type { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
 import type { CreateRecordRequestDto } from './dto/create-record-request.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface PatientRecordsQuery {
   careId?: string;
@@ -53,6 +54,7 @@ export class ProviderProfileService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly s3: S3Service,
+    private readonly notifications: NotificationsService,
   ) {}
 
   private async getProfile(userId: string) {
@@ -225,15 +227,25 @@ export class ProviderProfileService {
       resolvedPatientId = user.id;
     }
 
-    const [created] = await this.db
-      .insert(providerRecordRequests)
-      .values({
-        patientId: resolvedPatientId,
-        providerId,
-        requestType,
-        note,
-      })
-      .returning();
+    const [created, provider] = await Promise.all([
+      this.db
+        .insert(providerRecordRequests)
+        .values({ patientId: resolvedPatientId, providerId, requestType, note })
+        .returning()
+        .then((rows) => rows[0]),
+      this.db.query.users.findFirst({
+        where: eq(users.id, providerId),
+        columns: { fullName: true },
+      }),
+    ]);
+
+    this.notifications.push(
+      resolvedPatientId,
+      'RECORD_ACCESS_REQUEST',
+      'New Record Access Request',
+      `${provider?.fullName ?? 'A provider'} has requested access to your health records.`,
+      { requestId: created.id, requestType },
+    );
 
     return created;
   }

@@ -9,6 +9,7 @@ import type { Database } from '../db/db.module';
 import { healthRecordProofs, healthRecords, wallets } from '../db/schema';
 import { StellarService } from '../wallet/stellar.service';
 import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export const ZK_PROOF_QUEUE = 'zk-proof';
 
@@ -44,6 +45,7 @@ export class ZkProofProcessor extends WorkerHost {
     @Inject(DB) private readonly db: Database,
     private readonly stellar: StellarService,
     private readonly walletEncryption: WalletEncryptionService,
+    private readonly notifications: NotificationsService,
   ) {
     super();
   }
@@ -83,11 +85,18 @@ export class ZkProofProcessor extends WorkerHost {
         job.data.userId,
         recordId,
         poseidonProof.digest as string,
-      ).catch((err) =>
+      ).catch((err) => {
         this.logger.warn(
           `Stellar anchoring failed recordId=${recordId}: ${String(err)}`,
-        ),
-      );
+        );
+        this.notifications.push(
+          job.data.userId,
+          'ANCHOR_TX_FAILED',
+          'Blockchain Anchoring Failed',
+          'We were unable to anchor your health record proof on the blockchain. Please ensure your wallet has sufficient XLM.',
+          { recordId },
+        );
+      });
     } catch (err) {
       this.logger.error(`ZK proof failed recordId=${recordId}`, err);
 
@@ -98,6 +107,14 @@ export class ZkProofProcessor extends WorkerHost {
           error: err instanceof Error ? err.message : String(err),
         })
         .where(eq(healthRecordProofs.healthRecordId, recordId));
+
+      this.notifications.push(
+        job.data.userId,
+        'ZK_PROOF_FAILED',
+        'Health Record Proof Generation Failed',
+        'We were unable to generate a cryptographic proof for your health record. Please try again.',
+        { recordId },
+      );
     }
   }
 
@@ -116,5 +133,12 @@ export class ZkProofProcessor extends WorkerHost {
       .update(healthRecordProofs)
       .set({ anchorTxHash: txHash })
       .where(eq(healthRecordProofs.healthRecordId, recordId));
+    this.notifications.push(
+      userId,
+      'ANCHOR_TX_CONFIRMED',
+      'Health Record Anchored on Blockchain',
+      'Your health record proof has been successfully anchored on the Stellar blockchain.',
+      { recordId, txHash },
+    );
   }
 }

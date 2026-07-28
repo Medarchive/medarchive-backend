@@ -23,6 +23,7 @@ import { DashboardService } from '../dashboard/dashboard.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { MailService } from '../mail/mail.service';
 import { ZkProofService } from '../zk-proof/zk-proof.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import type { CreateHealthRecordDto } from './dto/create-health-record.dto';
 import { HealthRecordType } from './dto/create-health-record.dto';
 import { SortOrder } from '../common/dto/pagination.dto';
@@ -42,6 +43,7 @@ export class HealthRecordsService {
     private readonly activityLog: ActivityLogService,
     private readonly mail: MailService,
     private readonly zkProof: ZkProofService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   async upload(
@@ -253,6 +255,7 @@ export class HealthRecordsService {
           createdAt: providerRecordRequests.createdAt,
           updatedAt: providerRecordRequests.updatedAt,
           providerName: users.fullName,
+          providerProfilePictureUrl: providerProfiles.profilePictureUrl,
           organizationName: providerProfiles.organizationName,
           providerType: providerProfiles.providerType,
         })
@@ -305,6 +308,20 @@ export class HealthRecordsService {
       if (!existing) throw new NotFoundException('Request not found');
       throw new BadRequestException('Request already responded to');
     }
+
+    const patient = await this.db.query.users.findFirst({
+      where: eq(users.id, patientId),
+      columns: { fullName: true },
+    });
+
+    const statusLabel = dto.status === 'APPROVED' ? 'approved' : 'declined';
+    this.notifications.push(
+      updated.providerId,
+      'RECORD_REQUEST_RESPONSE',
+      `Record Request ${dto.status === 'APPROVED' ? 'Approved' : 'Declined'}`,
+      `${patient?.fullName ?? 'A patient'} has ${statusLabel} your record access request.`,
+      { requestId: updated.id, status: updated.status },
+    );
 
     return updated;
   }
