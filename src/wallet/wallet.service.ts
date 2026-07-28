@@ -16,7 +16,9 @@ import type { Database } from '../db/db.module';
 import { wallets, users } from '../db/schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { MailService } from '../mail/mail.service';
+import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { AddWalletDto } from './dto/add-wallet.dto';
+import type { WalletTransactionsQueryDto } from './dto/wallet-transactions-query.dto';
 
 const WALLET_NONCE_TTL_MS = 10 * 60 * 1000;
 
@@ -139,6 +141,46 @@ export class WalletService {
       balance,
       verifiedAt: wallet.verifiedAt,
     };
+  }
+
+  async getTransactions(userId: string, query: WalletTransactionsQueryDto) {
+    const wallet = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, userId),
+    });
+
+    if (!wallet) throw new NotFoundException('No wallet linked to this account');
+
+    const { page, take, sortOrder } = query;
+    const offset = (page - 1) * take;
+    const order = sortOrder === SortOrder.ASC ? 'asc' : 'desc';
+
+    const server = new Horizon.Server(
+      horizonUrls[wallet.network] ?? horizonUrls.MAINNET,
+    );
+
+    const fetched = await server
+      .transactions()
+      .forAccount(wallet.address)
+      .limit(200)
+      .order(order)
+      .call();
+
+    const all = fetched.records.map((tx) => ({
+      id: tx.id,
+      hash: tx.hash,
+      createdAt: tx.created_at,
+      successful: tx.successful,
+      ledger: tx.ledger_attr,
+      operationCount: tx.operation_count,
+      feeCharged: tx.fee_charged,
+      memoType: tx.memo_type,
+      memo: tx.memo ?? null,
+    }));
+
+    const items = all.slice(offset, offset + take);
+    const meta = buildMeta(all.length, page, take, items.length);
+
+    return { items, meta };
   }
 
   async remove(userId: string) {

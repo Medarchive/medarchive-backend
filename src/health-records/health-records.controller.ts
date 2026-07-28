@@ -236,6 +236,64 @@ export class HealthRecordsController {
     return this.healthRecordsService.findAll(user.sub, query);
   }
 
+  @Get('access-requests')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Access requests fetched successfully')
+  @ApiOperation({
+    summary: 'List provider record access requests for the logged-in patient',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  getAccessRequests(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: RecordRequestsQueryDto,
+  ) {
+    return this.healthRecordsService.getAccessRequests(user.sub, query);
+  }
+
+  @Patch('access-requests/:id')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Request updated successfully')
+  @ApiOperation({
+    summary: 'Approve or decline a provider record access request',
+  })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({
+    status: 200,
+    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Request already responded to.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Request not found.',
+    type: ApiErrorResponse,
+  })
+  respondToAccessRequest(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RespondToRequestDto,
+  ) {
+    return this.healthRecordsService.respondToAccessRequest(user.sub, id, dto);
+  }
+
   @Get(':id')
   @Version('1')
   @HttpCode(HttpStatus.OK)
@@ -318,64 +376,6 @@ export class HealthRecordsController {
     return this.healthRecordsService
       .findOne(user.sub, id)
       .then(() => this.zkProof.verify(id, user.sub));
-  }
-
-  @Get('access-requests')
-  @Version('1')
-  @HttpCode(HttpStatus.OK)
-  @ResponseMessage('Access requests fetched successfully')
-  @ApiOperation({
-    summary: 'List provider record access requests for the logged-in patient',
-  })
-  @ApiResponse({
-    status: 200,
-    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized.',
-    type: ApiErrorResponse,
-  })
-  getAccessRequests(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: RecordRequestsQueryDto,
-  ) {
-    return this.healthRecordsService.getAccessRequests(user.sub, query);
-  }
-
-  @Patch('access-requests/:id')
-  @Version('1')
-  @HttpCode(HttpStatus.OK)
-  @ResponseMessage('Request updated successfully')
-  @ApiOperation({
-    summary: 'Approve or decline a provider record access request',
-  })
-  @ApiParam({ name: 'id', type: String })
-  @ApiResponse({
-    status: 200,
-    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Request already responded to.',
-    type: ApiErrorResponse,
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized.',
-    type: ApiErrorResponse,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Request not found.',
-    type: ApiErrorResponse,
-  })
-  respondToAccessRequest(
-    @CurrentUser() user: JwtPayload,
-    @Param('id', ParseUUIDPipe) id: string,
-    @Body() dto: RespondToRequestDto,
-  ) {
-    return this.healthRecordsService.respondToAccessRequest(user.sub, id, dto);
   }
 
   @Delete(':id')

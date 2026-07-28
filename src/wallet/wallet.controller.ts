@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Post,
+  Query,
   UseGuards,
   Version,
 } from '@nestjs/common';
@@ -20,6 +21,7 @@ import {
 import { WalletService } from './wallet.service';
 import { AddWalletDto } from './dto/add-wallet.dto';
 import { VerifyWalletDto } from './dto/verify-wallet.dto';
+import { WalletTransactionsQueryDto } from './dto/wallet-transactions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ResponseMessage } from '../common/decorators/response-message.decorator';
@@ -139,6 +141,36 @@ export class WalletController {
   })
   get(@CurrentUser() user: JwtPayload) {
     return this.walletService.get(user.sub);
+  }
+
+  @Get('transactions')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Transactions fetched successfully')
+  @ApiOperation({
+    summary: 'Get wallet transactions',
+    description:
+      'Returns paginated Stellar transactions for the linked wallet.',
+  })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            message: { example: 'Transactions fetched successfully' },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({ status: 404, description: 'No wallet linked.', type: ApiErrorResponse })
+  getTransactions(
+    @CurrentUser() user: JwtPayload,
+    @Query() query: WalletTransactionsQueryDto,
+  ) {
+    return this.walletService.getTransactions(user.sub, query);
   }
 
   @Delete()
