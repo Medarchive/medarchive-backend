@@ -16,7 +16,7 @@ import { uuidv7 } from 'uuidv7';
 import { randomInt, createHash } from 'crypto';
 import { env } from '../config/env';
 import { DB } from '../db/db.module';
-import type { Database } from '../db/db.module';
+import type { Database, DbTransaction } from '../db/db.module';
 import {
   users,
   wallets,
@@ -71,6 +71,9 @@ export class AuthService {
       ARGON2_OPTIONS,
     )) as string;
 
+    const keypair = Keypair.random();
+    const encryptedSecret = this.walletEncryption.encrypt(keypair.secret());
+
     const userId = await this.db.transaction(async (tx) => {
       const [user] = await tx
         .insert(users)
@@ -89,17 +92,16 @@ export class AuthService {
         await tx.insert(providerProfiles).values({ userId: user.id });
       }
 
+      await tx.insert(wallets).values({
+        userId: user.id,
+        address: keypair.publicKey(),
+        network: env().STELLAR_NETWORK === 'mainnet' ? 'MAINNET' : 'TESTNET',
+        encryptedSecret,
+      });
+
       return user.id;
     });
 
-    const keypair = Keypair.random();
-    const encryptedSecret = this.walletEncryption.encrypt(keypair.secret());
-    await this.db.insert(wallets).values({
-      userId,
-      address: keypair.publicKey(),
-      network: env().STELLAR_NETWORK === 'mainnet' ? 'MAINNET' : 'TESTNET',
-      encryptedSecret,
-    });
     this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});
 
     const { resendAfterSeconds } = await this.sendOtp(
@@ -285,12 +287,14 @@ export class AuthService {
       where: eq(wallets.userId, user.id),
     });
 
-    await this.db
-      .update(refreshTokens)
-      .set({ revokedAt: new Date(), updatedAt: new Date() })
-      .where(eq(refreshTokens.id, token.id));
+    return this.db.transaction(async (tx) => {
+      await tx
+        .update(refreshTokens)
+        .set({ revokedAt: new Date(), updatedAt: new Date() })
+        .where(eq(refreshTokens.id, token.id));
 
-    return this.issueTokens(user, wallet?.address ?? null);
+      return this.issueTokens(user, wallet?.address ?? null, tx);
+    });
   }
 
   async logout(rawRefreshToken: string) {
@@ -416,6 +420,7 @@ export class AuthService {
   private async issueTokens(
     user: typeof users.$inferSelect,
     walletAddress: string | null,
+    tx?: DbTransaction,
   ): Promise<AuthTokens> {
     const payload: JwtPayload = {
       sub: user.id,
@@ -430,7 +435,7 @@ export class AuthService {
     const refreshTokenHash = this.hashToken(rawRefresh);
     const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await this.db.insert(refreshTokens).values({
+    await (tx ?? this.db).insert(refreshTokens).values({
       userId: user.id,
       tokenHash: refreshTokenHash,
       expiresAt,

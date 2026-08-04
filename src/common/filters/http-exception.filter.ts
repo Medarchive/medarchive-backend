@@ -15,7 +15,7 @@ const INTERNAL_ERROR_MESSAGE =
 
 @Catch()
 export class AllExceptionsFilter implements ExceptionFilter {
-  private readonly logger = new Logger('ExceptionFilter');
+  private readonly logger = new Logger('http');
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -36,7 +36,6 @@ export class AllExceptionsFilter implements ExceptionFilter {
         message = body;
       } else if (typeof body === 'object' && body !== null) {
         const b = body as Record<string, unknown>;
-
         if (Array.isArray(b.message)) {
           error = b.message[0] as string;
           message = 'Validation failed.';
@@ -53,14 +52,26 @@ export class AllExceptionsFilter implements ExceptionFilter {
         : first.message;
     }
 
-    this.logger.error({
-      event: 'exception.caught',
-      requestId,
-      userId,
-      statusCode,
-      message,
-      stack: isProd ? undefined : (exception as Error)?.stack,
-    });
+    const isRouteMiss =
+      statusCode === HttpStatus.NOT_FOUND && message.startsWith('Cannot ');
+
+    if (!isRouteMiss) {
+      const is5xx = statusCode >= 500;
+      const payload: Record<string, unknown> = {
+        event: 'exception.caught',
+        requestId,
+        statusCode,
+        message,
+        ...(userId && { userId }),
+        ...(is5xx && !isProd && { stack: (exception as Error)?.stack }),
+      };
+
+      if (is5xx) {
+        this.logger.error(payload);
+      } else {
+        this.logger.warn(payload);
+      }
+    }
 
     res.status(statusCode).json({
       statusCode,

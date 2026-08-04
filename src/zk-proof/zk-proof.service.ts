@@ -28,10 +28,10 @@ export class ZkProofService {
   ) {}
 
   async enqueue(data: ZkProofJobData): Promise<void> {
+    await this.queue.add('generate', data);
     await this.db
       .insert(healthRecordProofs)
       .values({ healthRecordId: data.recordId });
-    await this.queue.add('generate', data);
   }
 
   async verify(

@@ -42,20 +42,23 @@ export class PersonalInfoService {
 
     const { gender, ...infoDto } = dto;
 
-    const [created] = await Promise.all([
-      this.db
+    const [created] = await this.db.transaction(async (tx) => {
+      const result = await tx
         .insert(userPersonalInfo)
         .values({ userId: requestor.sub, ...infoDto })
-        .returning(),
-      gender
-        ? this.db
-            .update(users)
-            .set({ gender, updatedAt: new Date() })
-            .where(eq(users.id, requestor.sub))
-        : Promise.resolve(),
-    ]);
+        .returning();
 
-    return { ...created[0], gender: gender ?? null };
+      if (gender) {
+        await tx
+          .update(users)
+          .set({ gender, updatedAt: new Date() })
+          .where(eq(users.id, requestor.sub));
+      }
+
+      return result;
+    });
+
+    return { ...created, gender: gender ?? null };
   }
 
   async update(requestor: JwtPayload, dto: Partial<PersonalInfoDto>) {
@@ -70,26 +73,31 @@ export class PersonalInfoService {
 
     const { gender, ...infoDto } = dto;
 
-    const [updated, user] = await Promise.all([
-      this.db
+    return this.db.transaction(async (tx) => {
+      const [updated] = await tx
         .update(userPersonalInfo)
         .set({ ...infoDto, updatedAt: new Date() })
         .where(eq(userPersonalInfo.userId, requestor.sub))
-        .returning()
-        .then(([r]) => r),
-      gender
-        ? this.db
-            .update(users)
-            .set({ gender, updatedAt: new Date() })
-            .where(eq(users.id, requestor.sub))
-            .returning({ gender: users.gender })
-            .then(([r]) => r)
-        : this.db.query.users.findFirst({
-            where: eq(users.id, requestor.sub),
-            columns: { gender: true },
-          }),
-    ]);
+        .returning();
 
-    return { ...updated, gender: user?.gender ?? null };
+      let resolvedGender: string | null = null;
+
+      if (gender) {
+        const [u] = await tx
+          .update(users)
+          .set({ gender, updatedAt: new Date() })
+          .where(eq(users.id, requestor.sub))
+          .returning({ gender: users.gender });
+        resolvedGender = u?.gender ?? null;
+      } else {
+        const u = await tx.query.users.findFirst({
+          where: eq(users.id, requestor.sub),
+          columns: { gender: true },
+        });
+        resolvedGender = u?.gender ?? null;
+      }
+
+      return { ...updated, gender: resolvedGender };
+    });
   }
 }

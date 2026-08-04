@@ -1,4 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
+import { LoggerModule } from 'nestjs-pino';
 import { ConfigModule } from '@nestjs/config';
 import { CacheModule } from '@nestjs/cache-manager';
 import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
@@ -54,6 +55,20 @@ import { env } from './config/env';
       useFactory: () => ({
         connection: { url: env().REDIS_URL },
       }),
+    }),
+    LoggerModule.forRoot({
+      pinoHttp: {
+        autoLogging: false,
+        level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
+        transport:
+          process.env.NODE_ENV !== 'production'
+            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+            : undefined,
+        serializers: {
+          req: () => undefined,
+          res: () => undefined,
+        },
+      },
     }),
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),

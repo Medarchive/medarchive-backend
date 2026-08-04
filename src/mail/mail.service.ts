@@ -18,10 +18,12 @@ export class MailService {
     });
 
     if (error) {
-      this.logger.error(
-        `OTP send failed email=${email} error=${JSON.stringify(error)}`,
-      );
-      throw new Error('Failed to send verification email');
+      this.logger.error({
+        event: 'mail.send_failed',
+        email,
+        resendError: error,
+      });
+      throw new Error(`Failed to send verification email: ${error.message}`);
     }
 
     this.logger.log(`OTP sent email=${email}`);

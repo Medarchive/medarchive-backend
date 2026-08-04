@@ -75,21 +75,29 @@ export class UsersService {
         ARGON2_OPTIONS,
       )) as string;
 
-    if (Object.keys(userUpdates).length > 1) {
-      await this.db.update(users).set(userUpdates).where(eq(users.id, user.id));
-    }
+    const hasUserUpdates = Object.keys(userUpdates).length > 1;
+    const hasProviderUpdates =
+      (dto.specialty || dto.licenseNumber) && user.role === 'PROVIDER';
 
-    if ((dto.specialty || dto.licenseNumber) && user.role === 'PROVIDER') {
-      const profileUpdates: Partial<typeof providerProfiles.$inferInsert> = {
-        updatedAt: new Date(),
-      };
-      if (dto.specialty) profileUpdates.specialty = dto.specialty;
-      if (dto.licenseNumber) profileUpdates.licenseNumber = dto.licenseNumber;
+    if (hasUserUpdates || hasProviderUpdates) {
+      await this.db.transaction(async (tx) => {
+        if (hasUserUpdates) {
+          await tx.update(users).set(userUpdates).where(eq(users.id, user.id));
+        }
 
-      await this.db
-        .update(providerProfiles)
-        .set(profileUpdates)
-        .where(eq(providerProfiles.userId, user.id));
+        if (hasProviderUpdates) {
+          const profileUpdates: Partial<typeof providerProfiles.$inferInsert> =
+            { updatedAt: new Date() };
+          if (dto.specialty) profileUpdates.specialty = dto.specialty;
+          if (dto.licenseNumber)
+            profileUpdates.licenseNumber = dto.licenseNumber;
+
+          await tx
+            .update(providerProfiles)
+            .set(profileUpdates)
+            .where(eq(providerProfiles.userId, user.id));
+        }
+      });
     }
 
     return this.findFullProfile(user.id);

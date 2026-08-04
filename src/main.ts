@@ -1,6 +1,8 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { ValidationPipe, VersioningType, Logger } from '@nestjs/common';
+import { Logger as PinoLogger } from 'nestjs-pino';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import pinoHttp from 'pino-http';
 import compression from 'compression';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
@@ -27,9 +29,44 @@ async function bootstrap() {
   validateEnv(process.env);
 
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(PinoLogger));
 
   const logger = new Logger('Bootstrap');
   app.enableShutdownHooks();
+
+  const isProd = env().NODE_ENV === 'production';
+  app.use(
+    pinoHttp({
+      level: isProd ? 'info' : 'debug',
+      transport: isProd
+        ? undefined
+        : {
+            target: 'pino-pretty',
+            options: { colorize: true, singleLine: true },
+          },
+      genReqId: (req) => {
+        const incoming = req.headers?.['x-request-id'];
+        return typeof incoming === 'string' && incoming.trim()
+          ? incoming.trim()
+          : crypto.randomUUID();
+      },
+      customSuccessMessage: (_req, res) =>
+        `request completed [${res.statusCode}]`,
+      customErrorMessage: (_req, res) => `request failed [${res.statusCode}]`,
+      customAttributeKeys: { responseTime: 'durationMs' },
+      customProps: (req: import('http').IncomingMessage) => ({
+        method: req.method,
+        url: req.url,
+        ip: req.socket?.remoteAddress,
+        userAgent: req.headers?.['user-agent'],
+        requestId: req.headers?.['x-request-id'],
+      }),
+      serializers: {
+        req: () => undefined,
+        res: () => undefined,
+      },
+    }),
+  );
 
   app.use(
     helmet({
