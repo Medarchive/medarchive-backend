@@ -57,8 +57,15 @@ export class WalletService {
         .values({ userId, address: dto.address, network, label: dto.label })
         .returning();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('unique') || msg.includes('23505')) {
+      const isUnique = (e: unknown): boolean => {
+        if (!e || typeof e !== 'object') return false;
+        const obj = e as Record<string, unknown>;
+        const msg = typeof obj['message'] === 'string' ? obj['message'] : '';
+        const code = typeof obj['code'] === 'string' ? obj['code'] : '';
+        if (msg.includes('unique') || msg.includes('23505') || code === '23505') return true;
+        return 'cause' in obj ? isUnique(obj['cause']) : false;
+      };
+      if (isUnique(err)) {
         throw new ConflictException('Wallet or address already linked to an account');
       }
       throw err;
