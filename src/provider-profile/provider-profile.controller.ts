@@ -5,6 +5,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
   Patch,
   Post,
   Query,
@@ -27,6 +28,8 @@ import { ProviderProfileService } from './provider-profile.service';
 import { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
 import { PatientRecordsQueryDto } from './dto/patient-records-query.dto';
 import { CreateRecordRequestDto } from './dto/create-record-request.dto';
+import { ProviderPatientSearchDto } from './dto/provider-patient-search.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -173,6 +176,56 @@ export class ProviderProfileController {
     @Body() dto: CreateRecordRequestDto,
   ) {
     return this.providerProfileService.createRecordRequest(user.sub, dto);
+  }
+
+  @Get('patients/search')
+  @Version('1')
+  @ResponseMessage('Patient found')
+  @ApiOperation({ summary: 'Search patient by care ID' })
+  searchPatient(@Query() dto: ProviderPatientSearchDto) {
+    return this.providerProfileService.searchPatient(dto);
+  }
+
+  @Get('patients/:patientId/records')
+  @Version('1')
+  @ResponseMessage('Approved records fetched successfully')
+  @ApiOperation({ summary: 'List approved health records for a patient' })
+  getApprovedRecords(
+    @CurrentUser() user: JwtPayload,
+    @Param('patientId') patientId: string,
+  ) {
+    return this.providerProfileService.getApprovedRecords(user.sub, patientId);
+  }
+
+  @Get('patients/:patientId/records/:recordId')
+  @Version('1')
+  @ResponseMessage('Record fetched successfully')
+  @ApiOperation({ summary: 'Get a single approved health record' })
+  getApprovedRecord(
+    @CurrentUser() user: JwtPayload,
+    @Param('patientId') patientId: string,
+    @Param('recordId') recordId: string,
+  ) {
+    return this.providerProfileService.getApprovedRecord(user.sub, patientId, recordId);
+  }
+
+  @Get('record-requests/:id')
+  @Version('1')
+  @ResponseMessage('Record request fetched successfully')
+  @ApiOperation({ summary: 'Get a single record request' })
+  getRecordRequest(
+    @CurrentUser() user: JwtPayload,
+    @Param('id') id: string,
+  ) {
+    return this.providerProfileService.getRecordRequest(user.sub, id);
+  }
+
+  @Get('activity')
+  @Version('1')
+  @ResponseMessage('Activity log fetched successfully')
+  @ApiOperation({ summary: "Get provider's own activity log" })
+  getActivity(@CurrentUser() user: JwtPayload, @Query() dto: PaginationDto) {
+    return this.providerProfileService.getOwnActivity(user.sub, dto);
   }
 
   @Patch()

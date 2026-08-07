@@ -1,0 +1,2 @@
+ALTER TABLE "provider_record_requests" ADD COLUMN "record_id" uuid;--> statement-breakpoint
+ALTER TABLE "provider_record_requests" ADD CONSTRAINT "provider_record_requests_record_id_health_records_id_fk" FOREIGN KEY ("record_id") REFERENCES "public"."health_records"("id") ON DELETE set null ON UPDATE no action;

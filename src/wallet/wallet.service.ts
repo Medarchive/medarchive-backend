@@ -19,6 +19,7 @@ import { MailService } from '../mail/mail.service';
 import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { AddWalletDto } from './dto/add-wallet.dto';
 import type { WalletTransactionsQueryDto } from './dto/wallet-transactions-query.dto';
+import { env } from 'src/config/env';
 
 const WALLET_NONCE_TTL_MS = 10 * 60 * 1000;
 
@@ -48,13 +49,18 @@ export class WalletService {
     if (existing)
       throw new ConflictException('Wallet already linked to this account');
 
-    const network = dto.network ?? 'MAINNET';
+    const network = env().STELLAR_NETWORK;
 
     let wallet: typeof wallets.$inferSelect;
     try {
       [wallet] = await this.db
         .insert(wallets)
-        .values({ userId, address: dto.address, network, label: dto.label })
+        .values({
+          userId,
+          address: dto.address,
+          network: network === 'mainnet' ? 'MAINNET' : 'TESTNET',
+          label: dto.label,
+        })
         .returning();
     } catch (err: unknown) {
       const isUnique = (e: unknown): boolean => {
@@ -62,11 +68,14 @@ export class WalletService {
         const obj = e as Record<string, unknown>;
         const msg = typeof obj['message'] === 'string' ? obj['message'] : '';
         const code = typeof obj['code'] === 'string' ? obj['code'] : '';
-        if (msg.includes('unique') || msg.includes('23505') || code === '23505') return true;
+        if (msg.includes('unique') || msg.includes('23505') || code === '23505')
+          return true;
         return 'cause' in obj ? isUnique(obj['cause']) : false;
       };
       if (isUnique(err)) {
-        throw new ConflictException('Wallet or address already linked to an account');
+        throw new ConflictException(
+          'Wallet or address already linked to an account',
+        );
       }
       throw err;
     }
@@ -164,7 +173,8 @@ export class WalletService {
       where: eq(wallets.userId, userId),
     });
 
-    if (!wallet) throw new NotFoundException('No wallet linked to this account');
+    if (!wallet)
+      throw new NotFoundException('No wallet linked to this account');
 
     const { page, take, sortOrder } = query;
     const offset = (page - 1) * take;

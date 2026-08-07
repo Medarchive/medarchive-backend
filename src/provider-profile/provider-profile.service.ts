@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { and, desc, eq, inArray } from 'drizzle-orm';
 import { extname } from 'path';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
@@ -14,6 +14,7 @@ import {
   patientCareIds,
   providerProfiles,
   providerRecordRequests,
+  userPersonalInfo,
   users,
 } from '../db/schema';
 import {
@@ -24,6 +25,9 @@ import { healthRecordFiles } from '../db/schema';
 import type { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
 import type { CreateRecordRequestDto } from './dto/create-record-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { ActivityLogService } from '../activity-log/activity-log.service';
+import type { PaginationDto } from '../common/dto/pagination.dto';
+import type { ProviderPatientSearchDto } from './dto/provider-patient-search.dto';
 
 export interface PatientRecordsQuery {
   careId?: string;
@@ -55,6 +59,7 @@ export class ProviderProfileService {
     @Inject(DB) private readonly db: Database,
     private readonly s3: S3Service,
     private readonly notifications: NotificationsService,
+    private readonly activityLog: ActivityLogService,
   ) {}
 
   private async getProfile(userId: string) {
@@ -189,7 +194,7 @@ export class ProviderProfileService {
   }
 
   async createRecordRequest(providerId: string, dto: CreateRecordRequestDto) {
-    const { patientId, careId, email, requestType, note } = dto;
+    const { patientId, careId, email, requestType, note, recordId } = dto;
     const provided = [patientId, careId, email].filter(Boolean).length;
     if (provided === 0)
       throw new BadRequestException(
@@ -227,10 +232,18 @@ export class ProviderProfileService {
       resolvedPatientId = user.id;
     }
 
+    if (recordId) {
+      const record = await this.db.query.healthRecords.findFirst({
+        where: and(eq(healthRecords.id, recordId), eq(healthRecords.userId, resolvedPatientId)),
+        columns: { id: true },
+      });
+      if (!record) throw new NotFoundException('Record not found for this patient');
+    }
+
     const [created, provider] = await Promise.all([
       this.db
         .insert(providerRecordRequests)
-        .values({ patientId: resolvedPatientId, providerId, requestType, note })
+        .values({ patientId: resolvedPatientId, providerId, requestType, note, recordId: recordId ?? null })
         .returning()
         .then((rows) => rows[0]),
       this.db.query.users.findFirst({
@@ -248,6 +261,104 @@ export class ProviderProfileService {
     );
 
     return created;
+  }
+
+  async searchPatient(dto: ProviderPatientSearchDto) {
+    const care = await this.db.query.patientCareIds.findFirst({
+      where: eq(patientCareIds.careId, dto.careId),
+    });
+    if (!care) throw new NotFoundException('No patient found for this care ID');
+
+    const [user, personalInfo] = await Promise.all([
+      this.db.query.users.findFirst({
+        where: eq(users.id, care.userId),
+        columns: { id: true, fullName: true, email: true, phone: true },
+      }),
+      this.db.query.userPersonalInfo.findFirst({
+        where: eq(userPersonalInfo.userId, care.userId),
+        columns: { dateOfBirth: true },
+      }),
+    ]);
+
+    if (!user) throw new NotFoundException('Patient not found');
+
+    return {
+      userId: user.id,
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone ?? null,
+      dateOfBirth: personalInfo?.dateOfBirth ?? null,
+      careId: care.careId,
+      careIdStatus: care.status,
+    };
+  }
+
+  async getApprovedRecords(providerId: string, patientId: string) {
+    const approvedRequests = await this.db.query.providerRecordRequests.findMany({
+      where: and(
+        eq(providerRecordRequests.providerId, providerId),
+        eq(providerRecordRequests.patientId, patientId),
+        eq(providerRecordRequests.status, 'APPROVED'),
+      ),
+      columns: { recordId: true },
+    });
+
+    const approvedRecordIds = approvedRequests
+      .map((r) => r.recordId)
+      .filter((id): id is string => id !== null);
+
+    if (approvedRecordIds.length === 0) return [];
+
+    const records = await this.db.query.healthRecords.findMany({
+      where: and(
+        eq(healthRecords.userId, patientId),
+        inArray(healthRecords.id, approvedRecordIds),
+      ),
+      with: { files: true },
+      orderBy: [desc(healthRecords.createdAt)],
+    });
+
+    const now = Date.now();
+    return Promise.all(records.map((r) => this.refreshFiles(r, now)));
+  }
+
+  async getApprovedRecord(providerId: string, patientId: string, recordId: string) {
+    const [request, record] = await Promise.all([
+      this.db.query.providerRecordRequests.findFirst({
+        where: and(
+          eq(providerRecordRequests.providerId, providerId),
+          eq(providerRecordRequests.patientId, patientId),
+          eq(providerRecordRequests.recordId, recordId),
+          eq(providerRecordRequests.status, 'APPROVED'),
+        ),
+        columns: { id: true },
+      }),
+      this.db.query.healthRecords.findFirst({
+        where: and(eq(healthRecords.id, recordId), eq(healthRecords.userId, patientId)),
+        with: { files: true },
+      }),
+    ]);
+
+    if (!request) throw new NotFoundException('No approved access for this record');
+    if (!record) throw new NotFoundException('Record not found');
+
+    const now = Date.now();
+    return this.refreshFiles(record, now);
+  }
+
+  async getRecordRequest(providerId: string, requestId: string) {
+    const request = await this.db.query.providerRecordRequests.findFirst({
+      where: and(
+        eq(providerRecordRequests.id, requestId),
+        eq(providerRecordRequests.providerId, providerId),
+      ),
+    });
+    if (!request) throw new NotFoundException('Record request not found');
+    return request;
+  }
+
+  async getOwnActivity(userId: string, pagination: PaginationDto) {
+    return this.activityLog.findAll(userId, pagination);
   }
 
   async uploadPicture(userId: string, file: Express.Multer.File) {

@@ -8,6 +8,7 @@ import {
 } from 'drizzle-orm/pg-core';
 import { relations, sql } from 'drizzle-orm';
 import { users } from './users';
+import { healthRecords } from './health-records';
 
 export const recordRequestStatusEnum = pgEnum('record_request_status', [
   'PENDING',
@@ -27,6 +28,7 @@ export const providerRecordRequests = pgTable(
     providerId: uuid('provider_id')
       .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
+    recordId: uuid('record_id').references(() => healthRecords.id, { onDelete: 'set null' }),
     requestType: text('request_type').notNull(),
     note: text('note'),
     status: recordRequestStatusEnum('status').notNull().default('PENDING'),
@@ -55,6 +57,10 @@ export const providerRecordRequestsRelations = relations(
       fields: [providerRecordRequests.providerId],
       references: [users.id],
       relationName: 'providerRequests',
+    }),
+    record: one(healthRecords, {
+      fields: [providerRecordRequests.recordId],
+      references: [healthRecords.id],
     }),
   }),
 );

@@ -1,4 +1,4 @@
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export enum WalletNetwork {
@@ -15,10 +15,10 @@ export class AddWalletDto {
   @IsNotEmpty()
   declare address: string;
 
-  @ApiPropertyOptional({ enum: WalletNetwork, default: 'MAINNET' })
-  @IsOptional()
-  @IsEnum(WalletNetwork)
-  declare network?: WalletNetwork;
+  // @ApiPropertyOptional({ enum: WalletNetwork, default: 'MAINNET' })
+  // @IsOptional()
+  // @IsEnum(WalletNetwork)
+  // declare network?: WalletNetwork;
 
   @ApiPropertyOptional({ example: 'My main wallet' })
   @IsOptional()
