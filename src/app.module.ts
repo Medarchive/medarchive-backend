@@ -62,7 +62,10 @@ import { env } from './config/env';
         level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
         transport:
           process.env.NODE_ENV !== 'production'
-            ? { target: 'pino-pretty', options: { colorize: true, singleLine: true } }
+            ? {
+                target: 'pino-pretty',
+                options: { colorize: true, singleLine: true },
+              }
             : undefined,
         serializers: {
           req: () => undefined,
