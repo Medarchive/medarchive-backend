@@ -50,10 +50,19 @@ export class WalletService {
 
     const network = dto.network ?? 'MAINNET';
 
-    const [wallet] = await this.db
-      .insert(wallets)
-      .values({ userId, address: dto.address, network, label: dto.label })
-      .returning();
+    let wallet: typeof wallets.$inferSelect;
+    try {
+      [wallet] = await this.db
+        .insert(wallets)
+        .values({ userId, address: dto.address, network, label: dto.label })
+        .returning();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('unique') || msg.includes('23505')) {
+        throw new ConflictException('Wallet or address already linked to an account');
+      }
+      throw err;
+    }
 
     const nonce = uuidv7();
     await this.cache.set(this.nonceKey(userId), nonce, WALLET_NONCE_TTL_MS);

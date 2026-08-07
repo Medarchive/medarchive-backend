@@ -55,7 +55,8 @@ export class ZkProofProcessor extends WorkerHost {
 
     try {
       const preimages = buildPreimages(job.data);
-      const poseidonProof = await generate(preimages, recordId);
+      const scope = BigInt('0x' + createHash('sha256').update(recordId).digest('hex').slice(0, 62));
+      const poseidonProof = await generate(preimages, scope);
 
       await Promise.all([
         this.db
