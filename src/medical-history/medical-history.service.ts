@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Inject,
   Injectable,
   Logger,
@@ -7,7 +8,7 @@ import {
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
-import { eq, inArray, and, sql } from 'drizzle-orm';
+import { asc, count, eq, inArray, and, sql } from 'drizzle-orm';
 import { DB } from '../db/db.module';
 import type { Database, DbTransaction } from '../db/db.module';
 import {
@@ -20,6 +21,9 @@ import { DashboardService } from '../dashboard/dashboard.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { MedicalHistoryDto } from './dto/medical-history.dto';
 import type { UpdateMedicalProfileDto } from './dto/medical-profile.dto';
+import type { CreateMedicalConditionDto } from './dto/create-medical-condition.dto';
+import { buildMeta } from '../common/dto/pagination.dto';
+import type { PaginationDto } from '../common/dto/pagination.dto';
 
 const ACTIVE_CONDITIONS_CACHE_KEY = 'medical_conditions:active_ids';
 
@@ -188,7 +192,51 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
     return this.getMedicalProfile(userId);
   }
 
-  async invalidateConditionsCache() {
+  async listConditions(dto: PaginationDto) {
+    const offset = (dto.page - 1) * dto.take;
+    const [rows, [{ total }]] = await Promise.all([
+      this.db.query.medicalConditions.findMany({
+        where: eq(medicalConditions.isActive, true),
+        orderBy: [
+          asc(medicalConditions.sortOrder),
+          asc(medicalConditions.name),
+        ],
+        limit: dto.take,
+        offset,
+      }),
+      this.db
+        .select({ total: count() })
+        .from(medicalConditions)
+        .where(eq(medicalConditions.isActive, true)),
+    ]);
+    return {
+      data: rows,
+      meta: buildMeta(Number(total), dto.page, dto.take, rows.length),
+    };
+  }
+
+  async createCondition(dto: CreateMedicalConditionDto) {
+    const existing = await this.db.query.medicalConditions.findFirst({
+      where: eq(medicalConditions.name, dto.name),
+      columns: { id: true },
+    });
+    if (existing)
+      throw new ConflictException('A condition with this name already exists');
+
+    const [created] = await this.db
+      .insert(medicalConditions)
+      .values({
+        name: dto.name,
+        category: dto.category,
+        sortOrder: dto.sortOrder ?? 0,
+      })
+      .returning();
+
+    await this.invalidateConditionsCache();
+    return created;
+  }
+
+  async invalidateConditionsCache(): Promise<void> {
     await this.cache.del(ACTIVE_CONDITIONS_CACHE_KEY);
     await this.warmConditionsCache();
   }

@@ -33,7 +33,6 @@ import type { JwtPayload } from '../auth/auth.types';
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // ── Stats ─────────────────────────────────────────────────────────
   @Get('stats')
   @Version('1')
   @ApiOperation({ summary: 'Dashboard overview stats' })
@@ -41,7 +40,6 @@ export class AdminController {
     return this.adminService.getStats();
   }
 
-  // ── Users ─────────────────────────────────────────────────────────
   @Get('users')
   @Version('1')
   @ApiOperation({ summary: 'List all users' })

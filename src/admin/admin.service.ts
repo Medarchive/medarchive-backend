@@ -7,7 +7,17 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, asc, count, desc, eq, ilike, isNull, SQL } from 'drizzle-orm';
+import {
+  and,
+  asc,
+  count,
+  desc,
+  eq,
+  ilike,
+  inArray,
+  isNull,
+  SQL,
+} from 'drizzle-orm';
 import { randomBytes, createHash } from 'crypto';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
@@ -43,7 +53,8 @@ export class AdminService {
     const existing = await this.db.query.users.findFirst({
       where: eq(users.email, dto.email.toLowerCase()),
     });
-    if (existing) throw new ConflictException('A user with this email already exists');
+    if (existing)
+      throw new ConflictException('A user with this email already exists');
 
     const rawToken = randomBytes(32).toString('hex');
     const tokenHash = createHash('sha256').update(rawToken).digest('hex');
@@ -57,15 +68,19 @@ export class AdminService {
       createdById: adminId,
     });
 
-    const activationLink = `https://app.medarchive.africa/activate?token=${rawToken}&name=${encodeURIComponent(dto.name)}&email=${encodeURIComponent(dto.email.toLowerCase())}`;
+    const activationLink = `https://medarchive.africa/auth/activate?token=${rawToken}&name=${encodeURIComponent(dto.name)}&email=${encodeURIComponent(dto.email.toLowerCase())}`;
 
     this.mail
       .sendProviderInvitation(dto.email.toLowerCase(), dto.name, activationLink)
       .catch((err: unknown) => {
-        this.logger.error(`Failed to send provider invitation email to ${dto.email}: ${String(err)}`);
+        this.logger.error(
+          `Failed to send provider invitation email to ${dto.email}: ${String(err)}`,
+        );
       });
 
-    this.logger.log(`Provider invite created email=${dto.email} adminId=${adminId}`);
+    this.logger.log(
+      `Provider invite created email=${dto.email} adminId=${adminId}`,
+    );
 
     return { email: dto.email.toLowerCase(), name: dto.name, expiresAt };
   }
@@ -81,11 +96,38 @@ export class AdminService {
       this.db.select({ total: count() }).from(providerInvitations),
     ]);
 
+    const emails = rows.map((r) => r.email);
+    const providerData =
+      emails.length > 0
+        ? await this.db
+            .select({
+              email: users.email,
+              userId: users.id,
+              verifiedAt: providerProfiles.verifiedAt,
+            })
+            .from(users)
+            .leftJoin(providerProfiles, eq(providerProfiles.userId, users.id))
+            .where(
+              and(eq(users.role, 'PROVIDER'), inArray(users.email, emails)),
+            )
+            .then((res) => Object.fromEntries(res.map((r) => [r.email, r])))
+        : {};
+
     const now = new Date();
-    const data = rows.map(({ tokenHash: _t, ...r }) => ({
-      ...r,
-      status: r.usedAt ? 'USED' : r.expiresAt < now ? 'EXPIRED' : 'PENDING',
-    }));
+    const data = rows.map(({ tokenHash: _, ...r }) => {
+      const provider = providerData[r.email];
+      return {
+        ...r,
+        inviteStatus: r.usedAt
+          ? 'USED'
+          : r.expiresAt < now
+            ? 'EXPIRED'
+            : 'PENDING',
+        provider: provider
+          ? { userId: provider.userId, verified: provider.verifiedAt !== null }
+          : null,
+      };
+    });
 
     return { data, meta: buildMeta(Number(total), page, take, data.length) };
   }
@@ -96,7 +138,9 @@ export class AdminService {
     });
     if (!invite) throw new NotFoundException('Invitation not found');
 
-    await this.db.delete(providerInvitations).where(eq(providerInvitations.id, id));
+    await this.db
+      .delete(providerInvitations)
+      .where(eq(providerInvitations.id, id));
   }
 
   async listUsers(dto: AdminListUsersDto) {
@@ -107,7 +151,8 @@ export class AdminService {
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
     const orderCol = users.createdAt;
-    const orderExpr = dto.sortOrder === SortOrder.ASC ? asc(orderCol) : desc(orderCol);
+    const orderExpr =
+      dto.sortOrder === SortOrder.ASC ? asc(orderCol) : desc(orderCol);
 
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.users.findMany({
@@ -120,7 +165,10 @@ export class AdminService {
       this.db.select({ total: count() }).from(users).where(where),
     ]);
 
-    return { data: rows, meta: buildMeta(Number(total), dto.page, dto.take, rows.length) };
+    return {
+      data: rows,
+      meta: buildMeta(Number(total), dto.page, dto.take, rows.length),
+    };
   }
 
   async getUser(id: string) {
@@ -132,17 +180,27 @@ export class AdminService {
 
     const wallet = await this.db.query.wallets.findFirst({
       where: eq(wallets.userId, id),
-      columns: { id: true, address: true, network: true, label: true, verifiedAt: true },
+      columns: {
+        id: true,
+        address: true,
+        network: true,
+        label: true,
+        verifiedAt: true,
+      },
     });
 
     return { ...user, wallet: wallet ?? null };
   }
 
   async deleteUser(id: string, requestorId: string) {
-    const user = await this.db.query.users.findFirst({ where: eq(users.id, id) });
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, id),
+    });
     if (!user) throw new NotFoundException('User not found');
-    if (user.role === 'ADMIN') throw new ForbiddenException('Cannot delete an admin account');
-    if (id === requestorId) throw new ForbiddenException('Cannot delete your own account');
+    if (user.role === 'ADMIN')
+      throw new ForbiddenException('Cannot delete an admin account');
+    if (id === requestorId)
+      throw new ForbiddenException('Cannot delete your own account');
     await this.db.delete(users).where(eq(users.id, id));
   }
 
@@ -151,7 +209,8 @@ export class AdminService {
       where: eq(providerProfiles.userId, id),
     });
     if (!profile) throw new NotFoundException('Provider profile not found');
-    if (profile.verifiedAt) throw new BadRequestException('Provider already verified');
+    if (profile.verifiedAt)
+      throw new BadRequestException('Provider already verified');
 
     await this.db
       .update(providerProfiles)
@@ -179,18 +238,23 @@ export class AdminService {
       }),
       this.db.select({ total: count() }).from(wallets),
     ]);
-    return { data: rows, meta: buildMeta(Number(total), page, take, rows.length) };
+    return {
+      data: rows,
+      meta: buildMeta(Number(total), page, take, rows.length),
+    };
   }
 
   async listAccessRequests(dto: AdminListAccessRequestsDto) {
     const offset = (dto.page - 1) * dto.take;
     const conditions: SQL[] = [];
-    if (dto.status) conditions.push(eq(providerRecordRequests.status, dto.status));
+    if (dto.status)
+      conditions.push(eq(providerRecordRequests.status, dto.status));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const orderExpr = dto.sortOrder === SortOrder.ASC
-      ? asc(providerRecordRequests.createdAt)
-      : desc(providerRecordRequests.createdAt);
+    const orderExpr =
+      dto.sortOrder === SortOrder.ASC
+        ? asc(providerRecordRequests.createdAt)
+        : desc(providerRecordRequests.createdAt);
 
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.providerRecordRequests.findMany({
@@ -203,10 +267,16 @@ export class AdminService {
           provider: { columns: { id: true, fullName: true, email: true } },
         },
       }),
-      this.db.select({ total: count() }).from(providerRecordRequests).where(where),
+      this.db
+        .select({ total: count() })
+        .from(providerRecordRequests)
+        .where(where),
     ]);
 
-    return { data: rows, meta: buildMeta(Number(total), dto.page, dto.take, rows.length) };
+    return {
+      data: rows,
+      meta: buildMeta(Number(total), dto.page, dto.take, rows.length),
+    };
   }
 
   async listActivityLogs(dto: AdminListActivityLogsDto) {
@@ -215,9 +285,10 @@ export class AdminService {
     if (dto.userId) conditions.push(eq(activityLogs.userId, dto.userId));
     const where = conditions.length > 0 ? and(...conditions) : undefined;
 
-    const orderExpr = dto.sortOrder === SortOrder.ASC
-      ? asc(activityLogs.createdAt)
-      : desc(activityLogs.createdAt);
+    const orderExpr =
+      dto.sortOrder === SortOrder.ASC
+        ? asc(activityLogs.createdAt)
+        : desc(activityLogs.createdAt);
 
     const [rows, [{ total }]] = await Promise.all([
       this.db.query.activityLogs.findMany({
@@ -229,7 +300,10 @@ export class AdminService {
       this.db.select({ total: count() }).from(activityLogs).where(where),
     ]);
 
-    return { data: rows, meta: buildMeta(Number(total), dto.page, dto.take, rows.length) };
+    return {
+      data: rows,
+      meta: buildMeta(Number(total), dto.page, dto.take, rows.length),
+    };
   }
 
   async getStats() {
@@ -241,9 +315,18 @@ export class AdminService {
       [{ pendingVerifications }],
       [{ pendingRequests }],
     ] = await Promise.all([
-      this.db.select({ patients: count() }).from(users).where(eq(users.role, 'PATIENT')),
-      this.db.select({ providers: count() }).from(users).where(eq(users.role, 'PROVIDER')),
-      this.db.select({ admins: count() }).from(users).where(eq(users.role, 'ADMIN')),
+      this.db
+        .select({ patients: count() })
+        .from(users)
+        .where(eq(users.role, 'PATIENT')),
+      this.db
+        .select({ providers: count() })
+        .from(users)
+        .where(eq(users.role, 'PROVIDER')),
+      this.db
+        .select({ admins: count() })
+        .from(users)
+        .where(eq(users.role, 'ADMIN')),
       this.db.select({ totalWallets: count() }).from(wallets),
       this.db
         .select({ pendingVerifications: count() })
@@ -256,7 +339,11 @@ export class AdminService {
     ]);
 
     return {
-      users: { patients: Number(patients), providers: Number(providers), admins: Number(admins) },
+      users: {
+        patients: Number(patients),
+        providers: Number(providers),
+        admins: Number(admins),
+      },
       wallets: Number(totalWallets),
       pendingProviderVerifications: Number(pendingVerifications),
       pendingAccessRequests: Number(pendingRequests),
