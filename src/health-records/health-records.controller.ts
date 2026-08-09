@@ -294,6 +294,22 @@ export class HealthRecordsController {
     return this.healthRecordsService.respondToAccessRequest(user.sub, id, dto);
   }
 
+  @Patch('access-requests/:id/revoke')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Access revoked successfully')
+  @ApiOperation({ summary: 'Revoke an approved provider access request' })
+  @ApiParam({ name: 'id', type: String })
+  @ApiResponse({ status: 200, description: 'Access revoked.' })
+  @ApiResponse({ status: 400, description: 'Only approved access can be revoked.', type: ApiErrorResponse })
+  @ApiResponse({ status: 404, description: 'Request not found.', type: ApiErrorResponse })
+  revokeAccess(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.healthRecordsService.revokeAccess(user.sub, id);
+  }
+
   @Get(':id')
   @Version('1')
   @HttpCode(HttpStatus.OK)

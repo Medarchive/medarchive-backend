@@ -29,6 +29,7 @@ import { UpdateProviderProfileDto } from './dto/update-provider-profile.dto';
 import { PatientRecordsQueryDto } from './dto/patient-records-query.dto';
 import { CreateRecordRequestDto } from './dto/create-record-request.dto';
 import { ProviderPatientSearchDto } from './dto/provider-patient-search.dto';
+import { ListRecordRequestsDto } from './dto/list-record-requests.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -207,6 +208,20 @@ export class ProviderProfileController {
     @Param('recordId') recordId: string,
   ) {
     return this.providerProfileService.getApprovedRecord(user.sub, patientId, recordId);
+  }
+
+  @Get('record-requests')
+  @Version('1')
+  @ResponseMessage('Record requests fetched successfully')
+  @ApiOperation({
+    summary: 'List all record requests for this provider',
+    description: 'Paginated. Filter by status: PENDING | APPROVED | DECLINED | REVOKED. REVOKED rows show patient info but record is null.',
+  })
+  listRecordRequests(
+    @CurrentUser() user: JwtPayload,
+    @Query() dto: ListRecordRequestsDto,
+  ) {
+    return this.providerProfileService.listRecordRequests(user.sub, dto);
   }
 
   @Get('record-requests/:id')

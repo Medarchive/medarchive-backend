@@ -176,6 +176,13 @@
       "when": 1786132178060,
       "tag": "0024_provider_record_requests_record_id",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1786284781515,
+      "tag": "0025_add_revoked_status",
+      "breakpoints": true
     }
   ]
 }

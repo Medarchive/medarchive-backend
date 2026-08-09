@@ -1,0 +1,1 @@
+ALTER TYPE "public"."record_request_status" ADD VALUE 'REVOKED';

@@ -5,7 +5,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, count, desc, eq, inArray } from 'drizzle-orm';
 import { extname } from 'path';
 import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
@@ -26,7 +26,9 @@ import type { UpdateProviderProfileDto } from './dto/update-provider-profile.dto
 import type { CreateRecordRequestDto } from './dto/create-record-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { PaginationDto } from '../common/dto/pagination.dto';
+import type { ListRecordRequestsDto } from './dto/list-record-requests.dto';
 import type { ProviderPatientSearchDto } from './dto/provider-patient-search.dto';
 
 export interface PatientRecordsQuery {
@@ -234,16 +236,26 @@ export class ProviderProfileService {
 
     if (recordId) {
       const record = await this.db.query.healthRecords.findFirst({
-        where: and(eq(healthRecords.id, recordId), eq(healthRecords.userId, resolvedPatientId)),
+        where: and(
+          eq(healthRecords.id, recordId),
+          eq(healthRecords.userId, resolvedPatientId),
+        ),
         columns: { id: true },
       });
-      if (!record) throw new NotFoundException('Record not found for this patient');
+      if (!record)
+        throw new NotFoundException('Record not found for this patient');
     }
 
     const [created, provider] = await Promise.all([
       this.db
         .insert(providerRecordRequests)
-        .values({ patientId: resolvedPatientId, providerId, requestType, note, recordId: recordId ?? null })
+        .values({
+          patientId: resolvedPatientId,
+          providerId,
+          requestType,
+          note,
+          recordId: recordId ?? null,
+        })
         .returning()
         .then((rows) => rows[0]),
       this.db.query.users.findFirst({
@@ -293,15 +305,56 @@ export class ProviderProfileService {
     };
   }
 
+  async listRecordRequests(providerId: string, dto: ListRecordRequestsDto) {
+    const offset = (dto.page - 1) * dto.take;
+    const where = and(
+      eq(providerRecordRequests.providerId, providerId),
+      dto.status ? eq(providerRecordRequests.status, dto.status) : undefined,
+    );
+    const orderExpr =
+      dto.sortOrder === SortOrder.ASC
+        ? asc(providerRecordRequests.updatedAt)
+        : desc(providerRecordRequests.updatedAt);
+
+    const [rows, [{ total }]] = await Promise.all([
+      this.db.query.providerRecordRequests.findMany({
+        where,
+        limit: dto.take,
+        offset,
+        orderBy: orderExpr,
+        with: {
+          patient: { columns: { id: true, fullName: true, email: true } },
+          record: { columns: { id: true, title: true, createdAt: true } },
+        },
+      }),
+      this.db
+        .select({ total: count() })
+        .from(providerRecordRequests)
+        .where(where),
+    ]);
+
+    const data = rows.map(({ patient, record, ...r }) => ({
+      ...r,
+      patient,
+      record: r.status === 'REVOKED' ? null : (record ?? null),
+    }));
+
+    return {
+      data,
+      meta: buildMeta(Number(total), dto.page, dto.take, data.length),
+    };
+  }
+
   async getApprovedRecords(providerId: string, patientId: string) {
-    const approvedRequests = await this.db.query.providerRecordRequests.findMany({
-      where: and(
-        eq(providerRecordRequests.providerId, providerId),
-        eq(providerRecordRequests.patientId, patientId),
-        eq(providerRecordRequests.status, 'APPROVED'),
-      ),
-      columns: { recordId: true },
-    });
+    const approvedRequests =
+      await this.db.query.providerRecordRequests.findMany({
+        where: and(
+          eq(providerRecordRequests.providerId, providerId),
+          eq(providerRecordRequests.patientId, patientId),
+          eq(providerRecordRequests.status, 'APPROVED'),
+        ),
+        columns: { recordId: true },
+      });
 
     const approvedRecordIds = approvedRequests
       .map((r) => r.recordId)
@@ -322,7 +375,11 @@ export class ProviderProfileService {
     return Promise.all(records.map((r) => this.refreshFiles(r, now)));
   }
 
-  async getApprovedRecord(providerId: string, patientId: string, recordId: string) {
+  async getApprovedRecord(
+    providerId: string,
+    patientId: string,
+    recordId: string,
+  ) {
     const [request, record] = await Promise.all([
       this.db.query.providerRecordRequests.findFirst({
         where: and(
@@ -334,12 +391,16 @@ export class ProviderProfileService {
         columns: { id: true },
       }),
       this.db.query.healthRecords.findFirst({
-        where: and(eq(healthRecords.id, recordId), eq(healthRecords.userId, patientId)),
+        where: and(
+          eq(healthRecords.id, recordId),
+          eq(healthRecords.userId, patientId),
+        ),
         with: { files: true },
       }),
     ]);
 
-    if (!request) throw new NotFoundException('No approved access for this record');
+    if (!request)
+      throw new NotFoundException('No approved access for this record');
     if (!record) throw new NotFoundException('Record not found');
 
     const now = Date.now();

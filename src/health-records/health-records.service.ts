@@ -326,6 +326,41 @@ export class HealthRecordsService {
     return updated;
   }
 
+  async revokeAccess(patientId: string, requestId: string) {
+    const [updated] = await this.db
+      .update(providerRecordRequests)
+      .set({ status: 'REVOKED', updatedAt: new Date() })
+      .where(
+        and(
+          eq(providerRecordRequests.id, requestId),
+          eq(providerRecordRequests.patientId, patientId),
+          eq(providerRecordRequests.status, 'APPROVED'),
+        ),
+      )
+      .returning();
+
+    if (!updated) {
+      const existing = await this.db.query.providerRecordRequests.findFirst({
+        where: and(
+          eq(providerRecordRequests.id, requestId),
+          eq(providerRecordRequests.patientId, patientId),
+        ),
+      });
+      if (!existing) throw new NotFoundException('Request not found');
+      throw new BadRequestException('Only approved access can be revoked');
+    }
+
+    this.notifications.push(
+      updated.providerId,
+      'RECORD_REQUEST_RESPONSE',
+      'Record Access Revoked',
+      'A patient has revoked your access to their health record.',
+      { requestId: updated.id, status: updated.status },
+    );
+
+    return updated;
+  }
+
   private async refreshFiles<
     T extends {
       files: Array<{
