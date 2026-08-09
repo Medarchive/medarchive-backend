@@ -155,7 +155,7 @@ export class AdminService {
     const orderExpr =
       dto.sortOrder === SortOrder.ASC ? asc(orderCol) : desc(orderCol);
 
-    const [rows, [{ total }]] = await Promise.all([
+    const [rows, [{ total }], profiles] = await Promise.all([
       this.db.query.users.findMany({
         where,
         columns: { password: false },
@@ -164,11 +164,31 @@ export class AdminService {
         orderBy: orderExpr,
       }),
       this.db.select({ total: count() }).from(users).where(where),
+      this.db
+        .select({
+          userId: providerProfiles.userId,
+          verifiedAt: providerProfiles.verifiedAt,
+        })
+        .from(providerProfiles),
     ]);
 
+    const profileMap = Object.fromEntries(
+      profiles.map((p) => [p.userId, p.verifiedAt]),
+    );
+
+    const data = rows.map((u) => ({
+      ...u,
+      providerStatus:
+        u.role !== 'PROVIDER'
+          ? null
+          : profileMap[u.id] != null
+            ? 'VERIFIED'
+            : 'PENDING',
+    }));
+
     return {
-      data: rows,
-      meta: buildMeta(Number(total), dto.page, dto.take, rows.length),
+      data,
+      meta: buildMeta(Number(total), dto.page, dto.take, data.length),
     };
   }
 
