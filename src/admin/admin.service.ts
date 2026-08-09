@@ -114,7 +114,8 @@ export class AdminService {
         : {};
 
     const now = new Date();
-    const data = rows.map(({ tokenHash: _, ...r }) => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const data = rows.map(({ tokenHash, ...r }) => {
       const provider = providerData[r.email];
       return {
         ...r,

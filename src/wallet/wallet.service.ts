@@ -104,7 +104,9 @@ export class WalletService {
     if (!wallet)
       throw new NotFoundException('No wallet linked to this account');
 
-    if (!this.verifyStellarSignature(wallet.address, nonce, signature)) {
+    const valid = this.verifyStellarSignature(wallet.address, nonce, signature);
+
+    if (!valid) {
       throw new UnauthorizedException('Wallet signature verification failed');
     }
 
