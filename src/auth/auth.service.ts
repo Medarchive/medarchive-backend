@@ -474,10 +474,11 @@ export class AuthService {
   ): boolean {
     try {
       const keypair = Keypair.fromPublicKey(publicKey);
-      return keypair.verify(
-        Buffer.from(message, 'utf8'),
-        Buffer.from(signature, 'hex'),
-      );
+      // SEP-53: Freighter signs SHA256("Stellar Signed Message:\n" + message)
+      const payload = createHash('sha256')
+        .update(`Stellar Signed Message:\n${message}`)
+        .digest();
+      return keypair.verify(payload, Buffer.from(signature, 'hex'));
     } catch {
       return false;
     }

@@ -9,6 +9,7 @@ import {
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
 import { eq } from 'drizzle-orm';
+import { createHash } from 'crypto';
 import { Horizon, Keypair, StrKey } from '@stellar/stellar-sdk';
 import { uuidv7 } from 'uuidv7';
 import { DB } from '../db/db.module';
@@ -230,10 +231,11 @@ export class WalletService {
   ): boolean {
     try {
       const keypair = Keypair.fromPublicKey(publicKey);
-      return keypair.verify(
-        Buffer.from(message, 'utf8'),
-        Buffer.from(signature, 'hex'),
-      );
+      // SEP-53: Freighter signs SHA256("Stellar Signed Message:\n" + message)
+      const payload = createHash('sha256')
+        .update(`Stellar Signed Message:\n${message}`)
+        .digest();
+      return keypair.verify(payload, Buffer.from(signature, 'hex'));
     } catch {
       return false;
     }
