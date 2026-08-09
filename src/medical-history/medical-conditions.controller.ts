@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Param,
+  ParseUUIDPipe,
   Post,
   Put,
   Query,
@@ -20,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { MedicalHistoryService } from './medical-history.service';
 import { CreateMedicalConditionDto } from './dto/create-medical-condition.dto';
+import { UpdateMedicalConditionDto } from './dto/update-medical-condition.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -68,57 +71,41 @@ export class MedicalConditionsController {
     return this.medicalHistoryService.createCondition(dto);
   }
 
-  @Put()
+  @Put(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Version('1')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Condition updated successfully')
-  @ApiOperation({
-    summary: '[Admin] Update a medical condition',
-    description: 'Stub — not yet implemented.',
-  })
+  @ApiOperation({ summary: '[Admin] Update a medical condition' })
+  @ApiBody({ type: UpdateMedicalConditionDto })
   @ApiResponse({ status: 200, description: 'Condition updated.' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized.',
-    type: ApiErrorResponse,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden.',
-    type: ApiErrorResponse,
-  })
-  async update(): Promise<null> {
-    await this.medicalHistoryService.invalidateConditionsCache();
-    return null;
+  @ApiResponse({ status: 404, description: 'Condition not found.', type: ApiErrorResponse })
+  @ApiResponse({ status: 409, description: 'Name already exists.', type: ApiErrorResponse })
+  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden.', type: ApiErrorResponse })
+  update(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: UpdateMedicalConditionDto,
+  ) {
+    return this.medicalHistoryService.updateCondition(id, dto);
   }
 
-  @Delete()
+  @Delete(':id')
   @ApiBearerAuth('jwt')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('ADMIN')
   @Version('1')
   @HttpCode(HttpStatus.OK)
   @ResponseMessage('Condition deactivated successfully')
-  @ApiOperation({
-    summary: '[Admin] Deactivate a medical condition',
-    description: 'Stub — not yet implemented.',
-  })
+  @ApiOperation({ summary: '[Admin] Soft-delete a medical condition' })
   @ApiResponse({ status: 200, description: 'Condition deactivated.' })
-  @ApiResponse({
-    status: 401,
-    description: 'Unauthorized.',
-    type: ApiErrorResponse,
-  })
-  @ApiResponse({
-    status: 403,
-    description: 'Forbidden.',
-    type: ApiErrorResponse,
-  })
-  async deactivate(): Promise<null> {
-    await this.medicalHistoryService.invalidateConditionsCache();
-    return null;
+  @ApiResponse({ status: 400, description: 'Already deactivated.', type: ApiErrorResponse })
+  @ApiResponse({ status: 404, description: 'Condition not found.', type: ApiErrorResponse })
+  @ApiResponse({ status: 401, description: 'Unauthorized.', type: ApiErrorResponse })
+  @ApiResponse({ status: 403, description: 'Forbidden.', type: ApiErrorResponse })
+  deactivate(@Param('id', ParseUUIDPipe) id: string) {
+    return this.medicalHistoryService.deactivateCondition(id);
   }
 }

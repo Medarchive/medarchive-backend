@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  NotFoundException,
   Logger,
   OnApplicationBootstrap,
 } from '@nestjs/common';
@@ -22,6 +23,7 @@ import { ActivityLogService } from '../activity-log/activity-log.service';
 import type { MedicalHistoryDto } from './dto/medical-history.dto';
 import type { UpdateMedicalProfileDto } from './dto/medical-profile.dto';
 import type { CreateMedicalConditionDto } from './dto/create-medical-condition.dto';
+import type { UpdateMedicalConditionDto } from './dto/update-medical-condition.dto';
 import { buildMeta } from '../common/dto/pagination.dto';
 import type { PaginationDto } from '../common/dto/pagination.dto';
 
@@ -234,6 +236,53 @@ export class MedicalHistoryService implements OnApplicationBootstrap {
 
     await this.invalidateConditionsCache();
     return created;
+  }
+
+  async updateCondition(id: string, dto: UpdateMedicalConditionDto) {
+    const existing = await this.db.query.medicalConditions.findFirst({
+      where: eq(medicalConditions.id, id),
+      columns: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Condition not found');
+
+    if (dto.name) {
+      const nameConflict = await this.db.query.medicalConditions.findFirst({
+        where: eq(medicalConditions.name, dto.name),
+        columns: { id: true },
+      });
+      if (nameConflict && nameConflict.id !== id)
+        throw new ConflictException(
+          'A condition with this name already exists',
+        );
+    }
+
+    const [updated] = await this.db
+      .update(medicalConditions)
+      .set({ ...dto, updatedAt: new Date() })
+      .where(eq(medicalConditions.id, id))
+      .returning();
+
+    await this.invalidateConditionsCache();
+    return updated;
+  }
+
+  async deactivateCondition(id: string) {
+    const existing = await this.db.query.medicalConditions.findFirst({
+      where: eq(medicalConditions.id, id),
+      columns: { id: true, isActive: true },
+    });
+    if (!existing) throw new NotFoundException('Condition not found');
+    if (!existing.isActive)
+      throw new BadRequestException('Condition already deactivated');
+
+    const [updated] = await this.db
+      .update(medicalConditions)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(medicalConditions.id, id))
+      .returning();
+
+    await this.invalidateConditionsCache();
+    return updated;
   }
 
   async invalidateConditionsCache(): Promise<void> {
