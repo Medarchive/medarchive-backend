@@ -27,6 +27,8 @@ export const activityActionEnum = pgEnum('activity_action', [
   'WALLET_REMOVED',
   'MEDICAL_PROFILE_UPDATED',
   'CONDITIONS_UPDATED',
+  'SERVICE_ORDER_CREATED',
+  'SERVICE_ORDER_PAID',
 ]);
 
 export const activityLogs = pgTable(

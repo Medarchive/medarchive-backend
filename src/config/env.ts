@@ -33,6 +33,8 @@ const envSchema = z.object({
   STELLAR_NETWORK: z.enum(['testnet', 'mainnet']).default('testnet'),
   STELLAR_ANCHOR_SECRET: z.string().min(56),
   WALLET_ENCRYPTION_KEY: z.string().length(64),
+  STELLAR_USDC_ISSUER: z.string().length(56),
+  STELLAR_USDC_ASSET_CODE: z.string().default('USDC'),
 });
 
 export type Env = z.infer<typeof envSchema>;

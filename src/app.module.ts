@@ -26,6 +26,8 @@ import { ZkProofModule } from './zk-proof/zk-proof.module';
 import { AdminModule } from './admin/admin.module';
 import { ProviderProfileModule } from './provider-profile/provider-profile.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ServiceOrdersModule } from './service-orders/service-orders.module';
+import { WalletMaintenanceModule } from './wallet-maintenance/wallet-maintenance.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
@@ -92,6 +94,8 @@ import { env } from './config/env';
     AdminModule,
     ProviderProfileModule,
     NotificationsModule,
+    ServiceOrdersModule,
+    WalletMaintenanceModule,
   ],
   providers: [
     {

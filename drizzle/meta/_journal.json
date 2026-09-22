@@ -87,13 +87,6 @@
       "breakpoints": true
     },
     {
-      "idx": 12,
-      "version": "7",
-      "when": 1785089922588,
-      "tag": "0012_brainy_fixer",
-      "breakpoints": true
-    },
-    {
       "idx": 13,
       "version": "7",
       "when": 1785090143211,
@@ -129,13 +122,6 @@
       "breakpoints": true
     },
     {
-      "idx": 18,
-      "version": "7",
-      "when": 1753747200003,
-      "tag": "0018_provider_record_requests",
-      "breakpoints": true
-    },
-    {
       "idx": 19,
       "version": "7",
       "when": 1785213986133,
@@ -150,24 +136,10 @@
       "breakpoints": true
     },
     {
-      "idx": 21,
-      "version": "7",
-      "when": 1785218165423,
-      "tag": "0021_good_manta",
-      "breakpoints": true
-    },
-    {
       "idx": 22,
       "version": "7",
       "when": 1753747200005,
       "tag": "0022_notifications",
-      "breakpoints": true
-    },
-    {
-      "idx": 23,
-      "version": "7",
-      "when": 1786119537337,
-      "tag": "0023_notifications",
       "breakpoints": true
     },
     {
@@ -182,6 +154,13 @@
       "version": "7",
       "when": 1786284781515,
       "tag": "0025_add_revoked_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1790034140731,
+      "tag": "0026_new_ironclad",
       "breakpoints": true
     }
   ]

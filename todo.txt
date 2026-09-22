@@ -1,0 +1,320 @@
+Med Archive Africa MVP 2.0 — Gap Analysis / TODO
+Generated 2026-09-22, updated 2026-09-22 after Stellar settlement work landed.
+
+======================================================================
+STATUS SUMMARY
+======================================================================
+FIXED this session: Part 5 (Healthcare Service/Order), Part 7 (USDC payment
+— core flow), Part 8 (Payment Verification), Part 9 (Service-to-Transaction
+Association), the trustline gap found during review, and most of Part 6
+(non-custodial payment signing — see deviation note in Part 6).
+
+STILL NOT STARTED: Part 1 (Expanded ZK Clinical Disclosures), Part 2
+(Clinical Proof Verification), Part 3 (Care ID Integration of new proofs),
+Part 4 (Provider Access Integration of new proofs). These are blocked on
+Open Question 1 (proof-type list undefined) and are unrelated to the
+Stellar settlement work — zero code written against them.
+
+======================================================================
+BASELINE — what already exists (v1, confirmed in repo)
+======================================================================
+- Care ID: generate/get, 24h shareable public link (src/care-id/*)
+- Health records CRUD with types: BLOOD_TEST, PRESCRIPTION, SCAN, LAB_TEST,
+  MEDICATION, REPORT, ALLERGY, OTHER (src/db/schema/health-records.ts)
+- Generic ZK proof per health record: Poseidon commitment over
+  (userId, recordType, fileS3Keys) — proves record integrity/existence,
+  NOT a specific clinical predicate (src/zk-proof/*, src/db/schema/zk-proofs.ts)
+- Provider-access flow: request record access -> patient approve/decline/revoke
+  -> provider views approved record (src/provider-profile/*, provider-record-requests table)
+- Wallet linking: add Stellar address, SEP-53 signature verification (nonce
+  sign/verify), balance + transaction history via Horizon (src/wallet/*)
+- CORRECTION (was understated originally): every user — patient or provider —
+  gets a server-generated Stellar keypair at registration (auth.service.ts,
+  register()), with the secret AES-256-GCM encrypted and stored in
+  wallets.encryptedSecret. This system is custodial by default for
+  essentially every wallet in it, not just an edge case used for ZK
+  anchoring. See Open Question 2 (updated) below.
+- Stellar service: XLM-only payment operation, used only to anchor/verify
+  ZK proof commitments (0.0000001 XLM self-payment + memo hash).
+- No payment, order, service, invoice, or USDC concept anywhere in repo
+  at the time this doc was first written.
+
+======================================================================
+PART 1 — Expanded ZK Clinical Disclosures            STATUS: NOT STARTED
+======================================================================
+
+[ ] Define the additional clinical proof types (brief explicitly says this
+    must happen "before implementation" — currently undefined). Existing
+    three reference types (diagnosis category, allergy confirmation, prior
+    prescription patterns) are NOT implemented as distinct predicates today
+    — only a generic per-record existence proof exists. Action needed:
+    - Decide + document the new proof-type list (beyond the 3 baseline ones)
+    - For each type, define the exact predicate/claim being proven and its
+      public inputs (e.g. "has an ALLERGY record where cause = X" without
+      revealing other allergy fields)
+
+[ ] Add a proof "type" dimension to the data model. Today healthRecordProofs
+    is 1:1 with healthRecords and has no notion of "which fact is being
+    proven" — it's a blanket integrity commitment. Needs:
+    - New table/enum for clinical disclosure proof types
+    - Link proof type -> which underlying record(s)/fields feed the circuit
+    - Support multiple proofs of different types per record (current unique
+      constraint on healthRecordId blocks more than one proof per record)
+
+[ ] Build real predicate-based ZK circuits/logic per proof type (current
+    zk-proof.processor.ts just hashes (userId, recordType, fileS3Keys) —
+    this proves "a record was submitted," not a clinical fact). Needs
+    per-type circuit/logic so the proof confirms the specific fact without
+    exposing unrelated fields of the record.
+
+[ ] Patient-facing "generate proof" flow: select a supported clinical fact
+    type (not just "generate proof for this record"), confirm what will be
+    proven/hidden, trigger generation, and background job handles the ZK
+    work (queue infra already exists — reusable, but request shape needs a
+    proofType, not just recordId).
+
+[ ] Proof generation status UI/API per proof type: pending/generated/failed
+    states already exist as enum — reusable, but response needs to carry
+    proof type + human-readable description of what was proven.
+
+======================================================================
+PART 2 — Clinical Proof Verification (provider side)  STATUS: NOT STARTED
+======================================================================
+
+[ ] Build an actual provider-facing verification endpoint. The only verify
+    route today (POST /health-records/:id/verify-proof) calls
+    healthRecordsService.findOne(user.sub, id), which throws NotFoundException
+    unless record.userId === user.sub — i.e. it only works for the patient
+    who owns the record, despite its Swagger description claiming it's
+    "used by providers." Providers currently have no callable path to verify
+    a proof at all. (Unchanged — not touched this session.)
+
+[ ] Verification response must clearly state: proof type requested,
+    verification status (pass/fail), and the confirmed fact — without
+    exposing underlying record fields to the provider.
+
+[ ] Providers must only be able to verify proofs for patients who have an
+    APPROVED provider-record-requests entry (or an equivalent proof-sharing
+    grant) — access control for proof verification is unbuilt.
+
+[ ] Verification UI states: "proof requested," "verifying," "verified
+    successfully," "verification failed" — none of this exists yet on the
+    provider side.
+
+======================================================================
+PART 3 — Care ID Integration                          STATUS: NOT STARTED
+======================================================================
+
+[ ] Expose the new proof types through the existing Care ID
+    endpoints/experience rather than a separate product. Care ID service
+    currently only returns careId/status/wallet/name on share link resolve
+    — no proof list, no "generate proof" entry point reachable from Care ID.
+
+[ ] Decide whether generated proofs should be listed/visible from the
+    Care ID share view (resolveShareLink) for provider consumption, or
+    strictly through the provider-access flow — brief implies both Care ID
+    and provider-access should surface the new proofs.
+
+======================================================================
+PART 4 — Provider Access Integration                  STATUS: NOT STARTED
+======================================================================
+
+[ ] Extend provider-record-requests (or a new request type) so a provider
+    can request a specific clinical proof type, not just raw record access.
+    requestType is currently a free-text field with no defined proof-type
+    values or validation.
+
+[ ] Wire the full flow end to end: provider requests proof type -> patient
+    selects/generates matching proof -> provider verifies -> result shown.
+    Currently these are three disconnected pieces (record-request approval,
+    patient-only proof verify, no provider verify route).
+
+======================================================================
+PART 5 — Healthcare Service / Order                   STATUS: DONE
+======================================================================
+
+[x] service_orders table (src/db/schema/service-orders.ts): reference,
+    patientId, providerId, providerWalletAddress (snapshotted at creation),
+    description, amount (numeric 18,7), assetCode (default USDC), status
+    enum PENDING/PAID, txHash, paidAt, timestamps.
+    NOTE: shipped with only PENDING/PAID — no FAILED/CANCELLED, since
+    nothing in the built flow sets those states (avoided speculative enum
+    values per no-dead-states rule). Add later if a cancel/fail flow is
+    actually built.
+
+[x] POST /service-orders (PROVIDER role) — create order for a patient.
+    Requires provider to have a verified wallet AND an established USDC
+    trustline (checked live against Horizon before insert).
+
+[x] GET /service-orders, GET /service-orders/:id (PATIENT or PROVIDER,
+    participant-only) — order listing/details.
+    (src/service-orders/service-orders.controller.ts,
+    src/service-orders/service-orders.service.ts)
+
+======================================================================
+PART 6 — Non-Custodial Wallet Connection (payments)   STATUS: MOSTLY DONE
+======================================================================
+
+[x] Payment flow does NOT use server-side signing. DEVIATION FROM ORIGINAL
+    PLAN: instead of the server building an unsigned XDR for the client to
+    sign, GET /service-orders/:id/payment-intent returns the raw payment
+    parameters (destination, assetCode, assetIssuer, amount, memo). The
+    patient's own wallet builds, signs, and submits the transaction
+    entirely client-side — Med Archive never touches a signing key for
+    this flow. Simpler than XDR relay and avoids server-side sequence-number
+    races. verify-payment then checks the resulting tx hash against these
+    same parameters.
+
+[x] getPaymentIntent() and create() both now check hasUsdcTrustline() before
+    proceeding — see trustline fix below.
+
+[ ] Open Question 2 is now MORE concretely a problem, not resolved: every
+    wallet in the system (patient or provider) is custodial by default
+    (server holds an encrypted secret from signup). The payment flow itself
+    is now non-custodial, but the underlying wallet model still isn't —
+    product needs to decide whether that's acceptable for the hackathon
+    scope or needs to change.
+
+======================================================================
+PART 7 — USDC Healthcare Payment                       STATUS: DONE
+======================================================================
+
+[x] USDC asset support: STELLAR_USDC_ISSUER / STELLAR_USDC_ASSET_CODE env
+    vars, StellarService.getUsdcAsset(). (.env.development.local has a
+    real-looking testnet issuer filled in by the user — not fabricated by
+    the assistant.)
+
+[x] USDC trustline handling (was flagged as a gap, now fixed):
+    - StellarService.accountExists(), hasUsdcTrustline(),
+      establishUsdcTrustline(), fundTestnetAccountViaFriendbot()
+    - ServiceOrdersService.create() and getPaymentIntent() both reject with
+      a clear error if the relevant wallet (provider on create, patient on
+      pay) has no USDC trustline yet, instead of letting the wallet-side
+      signing fail blind.
+    - Cron job (Part new, see below) proactively establishes trustlines for
+      custodial wallets so this rejection becomes rare in practice.
+
+[x] Payment flow end to end: GET payment-intent (destination/asset/amount/
+    memo) -> patient's wallet signs+submits itself -> POST
+    /service-orders/:id/payment/verify with the tx hash -> server verifies
+    on Horizon -> order marked PAID.
+
+[x] API endpoints: GET /service-orders/:id/payment-intent,
+    POST /service-orders/:id/payment/verify.
+
+======================================================================
+PART 8 — Payment Verification                          STATUS: DONE
+(synchronous path only — see remaining gap below)
+======================================================================
+
+[x] StellarService.verifyPayment(txHash, expected): fetches the tx from
+    Horizon, checks successful=true, memo matches order.reference, finds a
+    payment operation, checks destination/asset/amount all match. Returns
+    {valid, reason}.
+
+[x] Order flips to PAID only on a fully-matched, successfully-verified
+    transaction (atomic DB update guarded by status=PENDING, so a race
+    can't double-pay). txHash has a unique index — a given transaction can
+    only ever pay one order.
+
+[ ] STILL A GAP: verification is only synchronous, triggered by the patient
+    calling POST /payment/verify themselves after submitting. Brief says
+    "Med Archive should monitor submitted payments" implying background
+    polling — not built. No BullMQ job watches for unconfirmed/abandoned
+    payments; if the patient never calls verify, the order sits PENDING
+    forever with no automatic reconciliation.
+
+======================================================================
+PART 9 — Service-to-Transaction Association             STATUS: DONE
+======================================================================
+
+[x] txHash, paidAt stored directly on the service_orders row (see Part 5
+    schema). Open Question 3 is now answered by this implementation: NO
+    retry/child table — one order supports exactly one successful payment,
+    txHash is unique across all orders. A failed verify attempt leaves the
+    order PENDING and doesn't consume/burn the order; the patient can
+    resubmit a different tx hash. If product later wants a full audit trail
+    of failed attempts (not just the one that succeeded), that needs a
+    child payments table — deliberately not built (would be premature
+    normalization for what was asked).
+
+======================================================================
+NEW — USDC Trustline Automation (not in original brief text, found +
+fixed during review of the settlement work)          STATUS: DONE
+======================================================================
+
+[x] src/wallet-maintenance/wallet-trustline.service.ts — @Cron, every 5
+    minutes. Sweeps all wallets with a stored encryptedSecret (i.e. every
+    wallet this server is actually able to sign for):
+    - account doesn't exist on-chain yet -> funds via Stellar testnet
+      Friendbot, then establishes a USDC trustline
+    - account exists but has no USDC trustline -> establishes one
+    - already has a trustline -> skipped
+    - wallets WITHOUT a stored secret (would only happen for a
+      hypothetically non-custodial linked wallet) are skipped — the server
+      has no way to sign a ChangeTrust for those, by design.
+    - per-wallet try/catch so one Horizon failure doesn't kill the sweep;
+      re-entrancy guard against overlapping ticks.
+    - notifies the wallet's owner (in-app notification) once fixed.
+
+======================================================================
+PART 10 — Screens (API-side data needed; design owns UI)
+======================================================================
+[ ] Clinical Disclosure Selection (list of supported proof types) — NOT STARTED
+[ ] Generate Clinical Proof (trigger + status polling) — NOT STARTED
+[ ] Provider Proof Request / Access (request + list pending/approved) — NOT STARTED
+[ ] Proof Verification Result (pass/fail + confirmed fact, no raw record) — NOT STARTED
+[x] Healthcare Service/Order Details (amount, provider, status) — DONE
+    (GET /service-orders/:id)
+[x] Payment Details / Payment Review — DONE, as a payment-intent (not an
+    unsigned-tx preview): GET /service-orders/:id/payment-intent
+[ ] Transaction Signing / Processing — DONE on the backend's side (nothing
+    to build server-side, this happens entirely in the patient's wallet);
+    frontend integration unverified, no UI exists to test against yet
+[x] Payment Successful / Paid Service (status + tx hash) — DONE
+    (order.status/txHash after verify)
+[x] Transaction Verification (verification result detail) — DONE
+    (POST /service-orders/:id/payment/verify response)
+
+======================================================================
+TESTS — added this session (were previously zero in the repo)
+======================================================================
+[x] src/wallet/stellar.service.spec.ts, src/service-orders/service-orders.service.spec.ts,
+    src/wallet-maintenance/wallet-trustline.service.spec.ts — 31 tests, all passing.
+[x] Fixed two pre-existing Jest config gaps that blocked ANY test from
+    running in this repo (not just mine): package.json jest.moduleNameMapper
+    (for the .js-suffixed relative imports used throughout db/schema/*.ts)
+    and jest.transformIgnorePatterns (stellar-sdk's ESM-only transitive
+    deps). Also added "jest" to tsconfig.json's `types` array (was
+    ["multer"] only, so @types/jest was never loaded despite being a
+    devDependency) — this is why the one pre-existing e2e spec already had
+    4 unrelated lint errors before this session touched anything.
+[ ] No integration/e2e tests against a real Postgres+Horizon — everything
+    above is unit-level with mocked DB/Horizon. Nothing verifies the full
+    stack (real DB migration + real testnet Horizon calls) end to end.
+
+======================================================================
+OPEN QUESTIONS FOR PRODUCT
+======================================================================
+1. STILL OPEN. What is the full list of new clinical disclosure proof
+   types beyond diagnosis category / allergy confirmation / prior
+   prescription pattern? Brief says this must be defined before
+   implementation — not yet defined anywhere in repo or brief. Blocks all
+   of Parts 1-4.
+2. UPDATED, STILL OPEN (see baseline correction above). Every wallet is
+   custodial by default at signup. Should that be left as-is for the
+   hackathon, or does it need to change given the brief's "non-custodial"
+   language? The payment flow itself was built non-custodial regardless of
+   this answer, so it isn't a blocker to what shipped — but it's a real
+   gap between the brief and the system as it exists.
+3. ANSWERED BY IMPLEMENTATION (see Part 9). One payment attempt per order,
+   no retry/audit table. Revisit only if product explicitly wants failed-
+   attempt history.
+4. STILL OPEN. Should generated clinical proofs be visible via the public
+   Care ID share link, or only through the authenticated provider-access
+   flow? Moot until Part 1 exists.
+5. NEW. Payment verification is fully synchronous/patient-triggered — no
+   background monitoring of submitted-but-unverified payments. Is a
+   BullMQ-based polling job (checking Horizon for orders stuck PENDING
+   with no txHash after some window) in scope, or is "patient must call
+   verify" an acceptable MVP simplification?

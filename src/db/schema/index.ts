@@ -10,3 +10,4 @@ export * from './zk-proofs';
 export * from './invitations';
 export * from './provider-record-requests';
 export * from './notifications';
+export * from './service-orders';
