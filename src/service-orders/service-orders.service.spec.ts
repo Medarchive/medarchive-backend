@@ -47,14 +47,22 @@ function mockUpdateReturning(
 
 describe('ServiceOrdersService', () => {
   let db: ReturnType<typeof createDbMock>;
-  let stellar: { verifyPayment: jest.Mock; hasUsdcTrustline: jest.Mock };
+  let stellar: {
+    verifyPayment: jest.Mock;
+    hasUsdcTrustline: jest.Mock;
+    findPaymentForOrder: jest.Mock;
+  };
   let activityLog: { log: jest.Mock };
   let notifications: { push: jest.Mock };
   let service: ServiceOrdersService;
 
   beforeEach(() => {
     db = createDbMock();
-    stellar = { verifyPayment: jest.fn(), hasUsdcTrustline: jest.fn() };
+    stellar = {
+      verifyPayment: jest.fn(),
+      hasUsdcTrustline: jest.fn(),
+      findPaymentForOrder: jest.fn(),
+    };
     activityLog = { log: jest.fn() };
     notifications = { push: jest.fn() };
     service = new ServiceOrdersService(
@@ -222,6 +230,63 @@ describe('ServiceOrdersService', () => {
         service.verifyPayment('patient-1', 'order-1', 'tx-1'),
       ).rejects.toThrow('already been used');
       expect(stellar.verifyPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findPendingOrders', () => {
+    it('queries only PENDING orders', async () => {
+      db.query.serviceOrders.findMany.mockResolvedValue([{ id: 'order-1' }]);
+
+      const orders = await service.findPendingOrders();
+
+      expect(orders).toEqual([{ id: 'order-1' }]);
+      expect(db.query.serviceOrders.findMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('reconcilePendingOrder', () => {
+    const order = {
+      id: 'order-1',
+      patientId: 'patient-1',
+      providerId: 'provider-1',
+      providerWalletAddress: 'GPROVIDER',
+      reference: 'ORD-ABCD1234',
+      amount: '25.0000000',
+      status: 'PENDING',
+    };
+
+    it('returns false when no matching payment is found', async () => {
+      stellar.findPaymentForOrder.mockResolvedValue(null);
+
+      await expect(service.reconcilePendingOrder(order)).resolves.toBe(false);
+      expect(stellar.verifyPayment).not.toHaveBeenCalled();
+    });
+
+    it('returns false when the candidate tx hash was already used', async () => {
+      stellar.findPaymentForOrder.mockResolvedValue('tx-1');
+      db.query.serviceOrders.findFirst.mockResolvedValue({ id: 'other-order' });
+
+      await expect(service.reconcilePendingOrder(order)).resolves.toBe(false);
+      expect(stellar.verifyPayment).not.toHaveBeenCalled();
+    });
+
+    it('returns false when full verification of the candidate fails', async () => {
+      stellar.findPaymentForOrder.mockResolvedValue('tx-1');
+      db.query.serviceOrders.findFirst.mockResolvedValue(undefined);
+      stellar.verifyPayment.mockResolvedValue({ valid: false });
+
+      await expect(service.reconcilePendingOrder(order)).resolves.toBe(false);
+      expect(db.update).not.toHaveBeenCalled();
+    });
+
+    it('marks the order PAID when a candidate payment fully verifies', async () => {
+      stellar.findPaymentForOrder.mockResolvedValue('tx-1');
+      db.query.serviceOrders.findFirst.mockResolvedValue(undefined);
+      stellar.verifyPayment.mockResolvedValue({ valid: true });
+      mockUpdateReturning(db, { ...order, status: 'PAID', txHash: 'tx-1' });
+
+      await expect(service.reconcilePendingOrder(order)).resolves.toBe(true);
+      expect(notifications.push).toHaveBeenCalledTimes(2);
     });
   });
 });

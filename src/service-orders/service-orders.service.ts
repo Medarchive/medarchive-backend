@@ -172,6 +172,48 @@ export class ServiceOrdersService {
         result.reason ?? 'Payment verification failed',
       );
 
+    const updated = await this.applyVerifiedPayment(order, txHash);
+    if (!updated) throw new ConflictException('Service order was already paid');
+
+    return updated;
+  }
+
+  async findPendingOrders() {
+    return this.db.query.serviceOrders.findMany({
+      where: eq(serviceOrders.status, 'PENDING'),
+    });
+  }
+
+  async reconcilePendingOrder(
+    order: typeof serviceOrders.$inferSelect,
+  ): Promise<boolean> {
+    const candidateTxHash = await this.stellar.findPaymentForOrder({
+      providerWalletAddress: order.providerWalletAddress,
+      amount: order.amount,
+    });
+    if (!candidateTxHash) return false;
+
+    const alreadyUsed = await this.db.query.serviceOrders.findFirst({
+      where: eq(serviceOrders.txHash, candidateTxHash),
+    });
+    if (alreadyUsed) return false;
+
+    const result = await this.stellar.verifyPayment(candidateTxHash, {
+      destination: order.providerWalletAddress,
+      amount: order.amount,
+      assetCode: env().STELLAR_USDC_ASSET_CODE,
+      assetIssuer: env().STELLAR_USDC_ISSUER,
+      memo: order.reference,
+    });
+    if (!result.valid) return false;
+
+    return (await this.applyVerifiedPayment(order, candidateTxHash)) !== null;
+  }
+
+  private async applyVerifiedPayment(
+    order: typeof serviceOrders.$inferSelect,
+    txHash: string,
+  ) {
     const [updated] = await this.db
       .update(serviceOrders)
       .set({
@@ -180,12 +222,17 @@ export class ServiceOrdersService {
         paidAt: new Date(),
         updatedAt: new Date(),
       })
-      .where(and(eq(serviceOrders.id, id), eq(serviceOrders.status, 'PENDING')))
+      .where(
+        and(
+          eq(serviceOrders.id, order.id),
+          eq(serviceOrders.status, 'PENDING'),
+        ),
+      )
       .returning();
 
-    if (!updated) throw new ConflictException('Service order was already paid');
+    if (!updated) return null;
 
-    this.activityLog.log(patientUserId, 'SERVICE_ORDER_PAID', {
+    this.activityLog.log(order.patientId, 'SERVICE_ORDER_PAID', {
       orderId: order.id,
       txHash,
     });
@@ -197,7 +244,7 @@ export class ServiceOrdersService {
       { orderId: order.id, txHash },
     );
     this.notifications.push(
-      patientUserId,
+      order.patientId,
       'SERVICE_ORDER_PAID',
       'Payment Verified',
       `Your payment of ${order.amount} USDC for order ${order.reference} has been verified.`,

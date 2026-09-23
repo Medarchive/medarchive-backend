@@ -125,6 +125,113 @@ describe('StellarService', () => {
     });
   });
 
+  describe('findPaymentForOrder', () => {
+    const providerWalletAddress =
+      'GPROVIDERWALLETADDRESS000000000000000000000000000000000';
+    const amount = '25.0000000';
+
+    it('returns null when no payments exist for the account', async () => {
+      mockServerImplementation({
+        payments: () => ({
+          forAccount: () => ({
+            order: () => ({
+              limit: () => ({
+                call: jest.fn().mockResolvedValue({ records: [] }),
+              }),
+            }),
+          }),
+        }),
+      });
+      await expect(
+        service.findPaymentForOrder({ providerWalletAddress, amount }),
+      ).resolves.toBeNull();
+    });
+
+    it('ignores payments with a different amount or asset', async () => {
+      mockServerImplementation({
+        payments: () => ({
+          forAccount: () => ({
+            order: () => ({
+              limit: () => ({
+                call: jest.fn().mockResolvedValue({
+                  records: [
+                    {
+                      type: 'payment',
+                      to: providerWalletAddress,
+                      asset_type: 'credit_alphanum4',
+                      asset_code: 'USDC',
+                      asset_issuer: usdcIssuer,
+                      amount: '1.0000000',
+                      transaction_hash: 'wrong-amount',
+                    },
+                    {
+                      type: 'payment',
+                      to: providerWalletAddress,
+                      asset_type: 'native',
+                      amount,
+                      transaction_hash: 'wrong-asset',
+                    },
+                  ],
+                }),
+              }),
+            }),
+          }),
+        }),
+      });
+      await expect(
+        service.findPaymentForOrder({ providerWalletAddress, amount }),
+      ).resolves.toBeNull();
+    });
+
+    it('returns the transaction hash of a matching payment', async () => {
+      mockServerImplementation({
+        payments: () => ({
+          forAccount: () => ({
+            order: () => ({
+              limit: () => ({
+                call: jest.fn().mockResolvedValue({
+                  records: [
+                    {
+                      type: 'payment',
+                      to: providerWalletAddress,
+                      asset_type: 'credit_alphanum4',
+                      asset_code: 'USDC',
+                      asset_issuer: usdcIssuer,
+                      amount,
+                      transaction_hash: 'matching-tx-hash',
+                    },
+                  ],
+                }),
+              }),
+            }),
+          }),
+        }),
+      });
+      await expect(
+        service.findPaymentForOrder({ providerWalletAddress, amount }),
+      ).resolves.toBe('matching-tx-hash');
+    });
+
+    it('returns null when the account has no payments yet (404)', async () => {
+      mockServerImplementation({
+        payments: () => ({
+          forAccount: () => ({
+            order: () => ({
+              limit: () => ({
+                call: jest
+                  .fn()
+                  .mockRejectedValue({ response: { status: 404 } }),
+              }),
+            }),
+          }),
+        }),
+      });
+      await expect(
+        service.findPaymentForOrder({ providerWalletAddress, amount }),
+      ).resolves.toBeNull();
+    });
+  });
+
   describe('establishUsdcTrustline', () => {
     it('signs and submits a ChangeTrust operation for USDC', async () => {
       const patient = Keypair.random();

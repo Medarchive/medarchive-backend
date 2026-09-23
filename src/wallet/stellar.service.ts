@@ -111,6 +111,46 @@ export class StellarService {
     }
   }
 
+  async findPaymentForOrder(order: {
+    providerWalletAddress: string;
+    amount: string;
+  }): Promise<string | null> {
+    const server = new Horizon.Server(this.networkUrl);
+    const asset = this.getUsdcAsset();
+
+    let page: Horizon.ServerApi.CollectionPage<
+      | Horizon.ServerApi.PaymentOperationRecord
+      | Horizon.ServerApi.CreateAccountOperationRecord
+      | Horizon.ServerApi.AccountMergeOperationRecord
+      | Horizon.ServerApi.PathPaymentOperationRecord
+      | Horizon.ServerApi.PathPaymentStrictSendOperationRecord
+      | Horizon.ServerApi.InvokeHostFunctionOperationRecord
+    >;
+    try {
+      page = await server
+        .payments()
+        .forAccount(order.providerWalletAddress)
+        .order('desc')
+        .limit(50)
+        .call();
+    } catch (err) {
+      if (this.isNotFoundError(err)) return null;
+      throw err;
+    }
+
+    const match = page.records.find(
+      (op): op is Horizon.ServerApi.PaymentOperationRecord =>
+        op.type === Horizon.HorizonApi.OperationResponseType.payment &&
+        op.to === order.providerWalletAddress &&
+        op.asset_type !== 'native' &&
+        op.asset_code === asset.getCode() &&
+        op.asset_issuer === asset.getIssuer() &&
+        op.amount === order.amount,
+    );
+
+    return match?.transaction_hash ?? null;
+  }
+
   async verifyPayment(
     txHash: string,
     expected: {

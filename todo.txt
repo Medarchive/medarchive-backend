@@ -1,19 +1,21 @@
 Med Archive Africa MVP 2.0 — Gap Analysis / TODO
-Generated 2026-09-22, updated 2026-09-22 after Stellar settlement work landed.
+Generated 2026-09-22, updated 2026-09-23 after background payment
+reconciliation landed.
 
 ======================================================================
 STATUS SUMMARY
 ======================================================================
-FIXED this session: Part 5 (Healthcare Service/Order), Part 7 (USDC payment
-— core flow), Part 8 (Payment Verification), Part 9 (Service-to-Transaction
-Association), the trustline gap found during review, and most of Part 6
-(non-custodial payment signing — see deviation note in Part 6).
+DONE: Part 5 (Healthcare Service/Order), Part 6 (non-custodial payment
+signing — see deviation note in Part 6), Part 7 (USDC payment), Part 8
+(Payment Verification, including background reconciliation as of
+2026-09-23), Part 9 (Service-to-Transaction Association), plus the
+trustline gap and migration-file bugs found and fixed during review.
 
 STILL NOT STARTED: Part 1 (Expanded ZK Clinical Disclosures), Part 2
 (Clinical Proof Verification), Part 3 (Care ID Integration of new proofs),
-Part 4 (Provider Access Integration of new proofs). These are blocked on
-Open Question 1 (proof-type list undefined) and are unrelated to the
-Stellar settlement work — zero code written against them.
+Part 4 (Provider Access Integration of new proofs). Blocked on Open
+Question 1 (proof-type list still undefined) — zero code written against
+these, nothing to unblock without product input.
 
 ======================================================================
 BASELINE — what already exists (v1, confirmed in repo)
@@ -204,7 +206,6 @@ PART 7 — USDC Healthcare Payment                       STATUS: DONE
 
 ======================================================================
 PART 8 — Payment Verification                          STATUS: DONE
-(synchronous path only — see remaining gap below)
 ======================================================================
 
 [x] StellarService.verifyPayment(txHash, expected): fetches the tx from
@@ -217,12 +218,26 @@ PART 8 — Payment Verification                          STATUS: DONE
     can't double-pay). txHash has a unique index — a given transaction can
     only ever pay one order.
 
-[ ] STILL A GAP: verification is only synchronous, triggered by the patient
-    calling POST /payment/verify themselves after submitting. Brief says
-    "Med Archive should monitor submitted payments" implying background
-    polling — not built. No BullMQ job watches for unconfirmed/abandoned
-    payments; if the patient never calls verify, the order sits PENDING
-    forever with no automatic reconciliation.
+[x] Background monitoring (was the one open gap, now fixed): patient no
+    longer has to call POST /payment/verify for the order to settle.
+    - StellarService.findPaymentForOrder(): lists recent payments to the
+      order's provider wallet via Horizon, filters by asset+amount, returns
+      a candidate tx hash (or null). Reuses the existing verifyPayment()
+      for the authoritative check (memo/destination/asset/amount) once a
+      candidate is found — no duplicated validation logic.
+    - ServiceOrdersService.reconcilePendingOrder() / findPendingOrders():
+      the shared "mark PAID" logic (DB update + notifications + activity
+      log) was extracted into applyVerifiedPayment() so both the
+      patient-triggered path and this background path use the identical,
+      single code path for actually settling an order.
+    - ServiceOrdersMonitorService (src/service-orders/service-orders-monitor.service.ts):
+      @Cron every 5 minutes, scans all PENDING orders, tries to reconcile
+      each. Per-order try/catch (one Horizon failure doesn't kill the
+      sweep) and a re-entrancy guard (matches the pattern already used in
+      WalletTrustlineService).
+    - The manual POST /payment/verify endpoint is kept — still useful for
+      instant feedback in the UI right after the patient submits, instead
+      of waiting up to 5 minutes for the next sweep.
 
 ======================================================================
 PART 9 — Service-to-Transaction Association             STATUS: DONE
@@ -313,8 +328,8 @@ OPEN QUESTIONS FOR PRODUCT
 4. STILL OPEN. Should generated clinical proofs be visible via the public
    Care ID share link, or only through the authenticated provider-access
    flow? Moot until Part 1 exists.
-5. NEW. Payment verification is fully synchronous/patient-triggered — no
-   background monitoring of submitted-but-unverified payments. Is a
-   BullMQ-based polling job (checking Horizon for orders stuck PENDING
-   with no txHash after some window) in scope, or is "patient must call
-   verify" an acceptable MVP simplification?
+5. ANSWERED BY IMPLEMENTATION (see Part 8). Background reconciliation is
+   built: ServiceOrdersMonitorService polls every 5 minutes via @Cron
+   (not BullMQ — no need for a queue here, it's a plain periodic full
+   scan of PENDING orders, not a per-job task with retries/backoff).
+   Manual verify still exists for instant UI feedback.
