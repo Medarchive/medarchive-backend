@@ -166,13 +166,12 @@ async function bootstrap() {
     SwaggerModule.setup('api/docs', app, document, {
       swaggerOptions: { persistAuthorization: true },
     });
-
-    logger.log('Swagger docs → /api/docs');
   }
 
   const port = env().APP_PORT;
   await app.listen(port);
-  console.log(`MedArchive API running on port ${port} [${env().NODE_ENV}]`);
+  logger.log('Swagger docs → /api/docs');
+  logger.log(`MedArchive API running on port ${port} [${env().NODE_ENV}]`);
 }
 
 void bootstrap();
