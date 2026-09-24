@@ -37,7 +37,11 @@ export class DashboardController {
   @ApiOperation({
     summary: 'Get patient dashboard',
     description:
-      'Returns health overview, last 6 records, care ID, and emergency contacts. Response is cached per user (5 min TTL). Cache is invalidated on any profile/records/contacts mutation.',
+      'Returns health overview, last 6 records, care ID, emergency contacts, ' +
+      'wallet, and the 5 most recent clinical disclosure proofs (id, type, ' +
+      'claim, status, timestamps — no cryptographic proof material). ' +
+      'Response is cached per user (5 min TTL). Cache is invalidated on any ' +
+      'profile/records/contacts/proof mutation.',
   })
   @ApiResponse({
     status: 200,
@@ -47,6 +51,32 @@ export class DashboardController {
         {
           properties: {
             message: { example: 'Dashboard fetched successfully' },
+            data: {
+              example: {
+                healthOverview: {
+                  bloodGroup: 'O_POSITIVE',
+                  genotype: 'AA',
+                  heightCm: '170.50',
+                  weightKg: '68.00',
+                  currentlyTakingMedication: false,
+                  conditions: [],
+                },
+                recentRecords: [],
+                careId: { careId: 'MA-000001', status: 'VERIFIED' },
+                emergencyContacts: [],
+                wallet: null,
+                recentClinicalProofs: [
+                  {
+                    id: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+                    proofType: 'BLOOD_GROUP',
+                    claimData: { bloodGroup: 'O_POSITIVE' },
+                    status: 'GENERATED',
+                    generatedAt: '2026-07-23T10:00:05.000Z',
+                    createdAt: '2026-07-23T10:00:00.000Z',
+                  },
+                ],
+              },
+            },
           },
         },
       ],

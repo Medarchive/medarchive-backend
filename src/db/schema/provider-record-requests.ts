@@ -9,6 +9,7 @@ import {
 import { relations, sql } from 'drizzle-orm';
 import { users } from './users';
 import { healthRecords } from './health-records';
+import { clinicalProofTypeEnum } from './clinical-proofs';
 
 export const recordRequestStatusEnum = pgEnum('record_request_status', [
   'PENDING',
@@ -32,6 +33,7 @@ export const providerRecordRequests = pgTable(
     recordId: uuid('record_id').references(() => healthRecords.id, {
       onDelete: 'set null',
     }),
+    proofType: clinicalProofTypeEnum('proof_type'),
     requestType: text('request_type').notNull(),
     note: text('note'),
     status: recordRequestStatusEnum('status').notNull().default('PENDING'),

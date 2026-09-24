@@ -8,6 +8,8 @@ import {
 } from '@nestjs/common';
 import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import type { Cache } from 'cache-manager';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import { eq } from 'drizzle-orm';
 import { createHash } from 'crypto';
 import { Horizon, Keypair, StrKey } from '@stellar/stellar-sdk';
@@ -17,9 +19,15 @@ import type { Database } from '../db/db.module';
 import { wallets, users } from '../db/schema';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { MailService } from '../mail/mail.service';
+import { WalletEncryptionService } from './wallet-encryption.service';
+import { StellarService } from './stellar.service';
 import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { AddWalletDto } from './dto/add-wallet.dto';
 import type { WalletTransactionsQueryDto } from './dto/wallet-transactions-query.dto';
+import {
+  WALLET_PROVISION_QUEUE,
+  type WalletProvisionJobData,
+} from './wallet-provision.types';
 import { env } from 'src/config/env';
 
 const WALLET_NONCE_TTL_MS = 10 * 60 * 1000;
@@ -36,7 +44,65 @@ export class WalletService {
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
     private readonly activityLog: ActivityLogService,
     private readonly mail: MailService,
+    private readonly walletEncryption: WalletEncryptionService,
+    private readonly stellar: StellarService,
+    @InjectQueue(WALLET_PROVISION_QUEUE)
+    private readonly provisionQueue: Queue<WalletProvisionJobData>,
   ) {}
+
+  async enqueueProvisioning(userId: string): Promise<void> {
+    await this.provisionQueue.add('provision', { userId });
+  }
+
+  async create(userId: string) {
+    const existing = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, userId),
+    });
+    if (existing)
+      throw new ConflictException('Wallet already linked to this account');
+
+    const keypair = Keypair.random();
+    const encryptedSecret = this.walletEncryption.encrypt(keypair.secret());
+    const network = env().STELLAR_NETWORK;
+
+    const [wallet] = await this.db
+      .insert(wallets)
+      .values({
+        userId,
+        address: keypair.publicKey(),
+        network: network === 'mainnet' ? 'MAINNET' : 'TESTNET',
+        encryptedSecret,
+        // Server holds the key, so ownership is inherent — no separate
+        // SEP-53 challenge is meaningful for a wallet the user never held.
+        verifiedAt: new Date(),
+      })
+      .returning();
+
+    this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});
+
+    this.activityLog.log(userId, 'WALLET_LINKED', {
+      address: keypair.publicKey(),
+      network,
+      custodial: true,
+    });
+
+    const user = await this.db.query.users.findFirst({
+      where: eq(users.id, userId),
+    });
+    if (user)
+      this.mail
+        .sendWalletLinked(
+          user.email,
+          user.fullName,
+          wallet.address,
+          wallet.network,
+        )
+        .catch(() => {});
+
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { encryptedSecret: _omit, ...safeWallet } = wallet;
+    return safeWallet;
+  }
 
   async add(userId: string, dto: AddWalletDto) {
     if (!StrKey.isValidEd25519PublicKey(dto.address)) {

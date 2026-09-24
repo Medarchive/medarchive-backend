@@ -27,8 +27,7 @@ import {
 } from '../db/schema';
 import { MailService } from '../mail/mail.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
-import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
-import { StellarService } from '../wallet/stellar.service';
+import { WalletService } from '../wallet/wallet.service';
 import { setContextUserId } from '../common/context/request.context';
 import type { RegisterDto } from './dto/register.dto';
 import { RegisterRole } from './dto/register.dto';
@@ -55,8 +54,7 @@ export class AuthService {
     private readonly jwt: JwtService,
     private readonly mail: MailService,
     private readonly activityLog: ActivityLogService,
-    private readonly walletEncryption: WalletEncryptionService,
-    private readonly stellar: StellarService,
+    private readonly wallet: WalletService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -70,9 +68,6 @@ export class AuthService {
       dto.password,
       ARGON2_OPTIONS,
     )) as string;
-
-    const keypair = Keypair.random();
-    const encryptedSecret = this.walletEncryption.encrypt(keypair.secret());
 
     const userId = await this.db.transaction(async (tx) => {
       const [user] = await tx
@@ -92,17 +87,16 @@ export class AuthService {
         await tx.insert(providerProfiles).values({ userId: user.id });
       }
 
-      await tx.insert(wallets).values({
-        userId: user.id,
-        address: keypair.publicKey(),
-        network: env().STELLAR_NETWORK === 'mainnet' ? 'MAINNET' : 'TESTNET',
-        encryptedSecret,
-      });
-
       return user.id;
     });
 
-    this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});
+    // Custodial wallet is provisioned in the background — registration
+    // doesn't wait on keypair generation or the testnet funding call.
+    this.wallet.enqueueProvisioning(userId).catch((err: unknown) => {
+      this.logger.error(
+        `Failed to enqueue wallet provisioning userId=${userId}: ${String(err)}`,
+      );
+    });
 
     const { resendAfterSeconds } = await this.sendOtp(
       dto.email.toLowerCase(),

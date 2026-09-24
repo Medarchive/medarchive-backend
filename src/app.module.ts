@@ -28,6 +28,7 @@ import { ProviderProfileModule } from './provider-profile/provider-profile.modul
 import { NotificationsModule } from './notifications/notifications.module';
 import { ServiceOrdersModule } from './service-orders/service-orders.module';
 import { WalletMaintenanceModule } from './wallet-maintenance/wallet-maintenance.module';
+import { ClinicalProofsModule } from './clinical-proofs/clinical-proofs.module';
 import { RequestIdMiddleware } from './common/middleware/request-id.middleware';
 import { ApiKeyGuard } from './common/guards/api-key.guard';
 import { env } from './config/env';
@@ -96,6 +97,7 @@ import { env } from './config/env';
     NotificationsModule,
     ServiceOrdersModule,
     WalletMaintenanceModule,
+    ClinicalProofsModule,
   ],
   providers: [
     {

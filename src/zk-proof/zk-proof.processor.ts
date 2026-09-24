@@ -20,11 +20,11 @@ export interface ZkProofJobData {
   fileS3Keys: string[];
 }
 
-function toFieldElement(uuid: string): bigint {
+export function toFieldElement(uuid: string): bigint {
   return BigInt('0x' + uuid.replace(/-/g, ''));
 }
 
-function stringToField(s: string): bigint {
+export function stringToField(s: string): bigint {
   const hash = createHash('sha256').update(s).digest();
   return BigInt('0x' + hash.slice(0, 31).toString('hex'));
 }
@@ -55,7 +55,9 @@ export class ZkProofProcessor extends WorkerHost {
 
     try {
       const preimages = buildPreimages(job.data);
-      const scope = BigInt('0x' + createHash('sha256').update(recordId).digest('hex').slice(0, 62));
+      const scope = BigInt(
+        '0x' + createHash('sha256').update(recordId).digest('hex').slice(0, 62),
+      );
       const poseidonProof = await generate(preimages, scope);
 
       await Promise.all([

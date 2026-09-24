@@ -38,13 +38,47 @@ import type { JwtPayload } from '../auth/auth.types';
 export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
+  @Post('create')
+  @Version('1')
+  @HttpCode(HttpStatus.CREATED)
+  @ResponseMessage('Wallet created successfully')
+  @ApiOperation({
+    summary: 'Create a custodial Stellar wallet',
+    description:
+      'For patients/providers who do not already have a Stellar wallet. ' +
+      'Generates a keypair server-side, funds it on testnet, and returns ' +
+      'it ready to use immediately (verifiedAt is set right away — the ' +
+      'server controls the key, so there is no separate ownership challenge ' +
+      'to sign). If you have your own wallet, use POST /wallet instead.',
+  })
+  @ApiResponse({
+    status: 201,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        { properties: { message: { example: 'Wallet created successfully' } } },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'A wallet is already linked to this account.',
+    type: ApiErrorResponse,
+  })
+  create(@CurrentUser() user: JwtPayload) {
+    return this.walletService.create(user.sub);
+  }
+
   @Post()
   @Version('1')
   @ResponseMessage('Wallet linked successfully')
   @ApiOperation({
-    summary: 'Link a Stellar wallet',
+    summary: 'Link your own Stellar wallet',
     description:
-      'Validates public key format, stores wallet, and returns a nonce to sign for verification. Proceed to POST /wallet/verify.',
+      'For patients/providers bringing their own wallet (e.g. Freighter). ' +
+      'Validates public key format, stores wallet, and returns a nonce to ' +
+      'sign for verification. Proceed to POST /wallet/verify. If you do ' +
+      'not have a wallet yet, use POST /wallet/create instead.',
   })
   @ApiBody({ type: AddWalletDto })
   @ApiResponse({
@@ -165,7 +199,11 @@ export class WalletController {
       ],
     },
   })
-  @ApiResponse({ status: 404, description: 'No wallet linked.', type: ApiErrorResponse })
+  @ApiResponse({
+    status: 404,
+    description: 'No wallet linked.',
+    type: ApiErrorResponse,
+  })
   getTransactions(
     @CurrentUser() user: JwtPayload,
     @Query() query: WalletTransactionsQueryDto,

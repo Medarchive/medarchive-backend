@@ -249,7 +249,10 @@ export class HealthRecordsService {
           id: providerRecordRequests.id,
           patientId: providerRecordRequests.patientId,
           providerId: providerRecordRequests.providerId,
+          recordId: providerRecordRequests.recordId,
+          recordTitle: healthRecords.title,
           requestType: providerRecordRequests.requestType,
+          proofType: providerRecordRequests.proofType,
           note: providerRecordRequests.note,
           status: providerRecordRequests.status,
           createdAt: providerRecordRequests.createdAt,
@@ -265,6 +268,10 @@ export class HealthRecordsService {
           providerProfiles,
           eq(providerProfiles.userId, providerRecordRequests.providerId),
         )
+        .leftJoin(
+          healthRecords,
+          eq(healthRecords.id, providerRecordRequests.recordId),
+        )
         .where(where)
         .orderBy(desc(providerRecordRequests.createdAt))
         .limit(take)
@@ -275,9 +282,14 @@ export class HealthRecordsService {
         .where(where),
     ]);
 
+    const data = rows.map(({ recordId, recordTitle, ...r }) => ({
+      ...r,
+      record: recordId ? { id: recordId, title: recordTitle } : null,
+    }));
+
     return {
-      data: rows,
-      meta: buildMeta(total, page, take, rows.length),
+      data,
+      meta: buildMeta(total, page, take, data.length),
     };
   }
 

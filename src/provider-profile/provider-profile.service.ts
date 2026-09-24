@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -26,6 +27,7 @@ import type { UpdateProviderProfileDto } from './dto/update-provider-profile.dto
 import type { CreateRecordRequestDto } from './dto/create-record-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
+import { ClinicalProofsService } from '../clinical-proofs/clinical-proofs.service';
 import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { PaginationDto } from '../common/dto/pagination.dto';
 import type { ListRecordRequestsDto } from './dto/list-record-requests.dto';
@@ -62,6 +64,7 @@ export class ProviderProfileService {
     private readonly s3: S3Service,
     private readonly notifications: NotificationsService,
     private readonly activityLog: ActivityLogService,
+    private readonly clinicalProofs: ClinicalProofsService,
   ) {}
 
   private async getProfile(userId: string) {
@@ -196,7 +199,8 @@ export class ProviderProfileService {
   }
 
   async createRecordRequest(providerId: string, dto: CreateRecordRequestDto) {
-    const { patientId, careId, email, requestType, note, recordId } = dto;
+    const { patientId, careId, email, requestType, note, recordId, proofType } =
+      dto;
     const provided = [patientId, careId, email].filter(Boolean).length;
     if (provided === 0)
       throw new BadRequestException(
@@ -205,6 +209,10 @@ export class ProviderProfileService {
     if (provided > 1)
       throw new BadRequestException(
         'Provide exactly one of: patientId, careId, email',
+      );
+    if (recordId && proofType)
+      throw new BadRequestException(
+        'Provide at most one of: recordId, proofType',
       );
 
     let resolvedPatientId: string;
@@ -255,6 +263,7 @@ export class ProviderProfileService {
           requestType,
           note,
           recordId: recordId ?? null,
+          proofType: proofType ?? null,
         })
         .returning()
         .then((rows) => rows[0]),
@@ -405,6 +414,36 @@ export class ProviderProfileService {
 
     const now = Date.now();
     return this.refreshFiles(record, now);
+  }
+
+  async verifyClinicalProof(providerId: string, proofId: string) {
+    const result = await this.clinicalProofs.verify(proofId);
+
+    const approved = await this.db.query.providerRecordRequests.findFirst({
+      where: and(
+        eq(providerRecordRequests.providerId, providerId),
+        eq(providerRecordRequests.patientId, result.patientId),
+        eq(providerRecordRequests.proofType, result.proofType),
+        eq(providerRecordRequests.status, 'APPROVED'),
+      ),
+    });
+    if (!approved)
+      throw new ForbiddenException(
+        'No approved request for this clinical proof type from this patient',
+      );
+
+    this.activityLog.log(providerId, 'CLINICAL_PROOF_VERIFIED', {
+      proofId,
+      patientId: result.patientId,
+      proofType: result.proofType,
+      valid: result.valid,
+    });
+
+    return {
+      valid: result.valid,
+      proofType: result.proofType,
+      claimData: result.claimData,
+    };
   }
 
   async getRecordRequest(providerId: string, requestId: string) {

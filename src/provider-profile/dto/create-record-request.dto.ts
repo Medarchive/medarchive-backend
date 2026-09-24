@@ -1,11 +1,13 @@
 import {
   IsEmail,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsString,
   IsUUID,
 } from 'class-validator';
 import { ApiPropertyOptional, ApiProperty } from '@nestjs/swagger';
+import { ClinicalProofType } from '../../clinical-proofs/dto/create-clinical-proof.dto';
 
 export class CreateRecordRequestDto {
   @ApiPropertyOptional({
@@ -38,11 +40,23 @@ export class CreateRecordRequestDto {
   @ApiPropertyOptional({
     example: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
     description:
-      'Specific health record ID to request access to (optional — omit to request by type)',
+      'Specific health record ID to request access to. At most one of ' +
+      'recordId/proofType may be set — omit both to request by requestType alone.',
   })
   @IsOptional()
   @IsUUID()
   recordId?: string;
+
+  @ApiPropertyOptional({
+    enum: ClinicalProofType,
+    example: ClinicalProofType.BLOOD_GROUP,
+    description:
+      'Specific clinical proof type being requested. At most one of ' +
+      'recordId/proofType may be set.',
+  })
+  @IsOptional()
+  @IsEnum(ClinicalProofType)
+  proofType?: ClinicalProofType;
 
   @ApiProperty({
     example: 'Lab results',

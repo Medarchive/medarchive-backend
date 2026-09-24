@@ -10,6 +10,7 @@ import {
   healthRecords,
   patientCareIds,
   emergencyContacts,
+  clinicalProofs,
 } from '../db/schema';
 import {
   S3Service,
@@ -48,30 +49,50 @@ export class DashboardService {
   }
 
   private async aggregate(userId: string) {
-    const [profile, conditions, recentRecords, careId, contacts, wallet] =
-      await Promise.all([
-        this.db.query.userMedicalProfile.findFirst({
-          where: eq(userMedicalProfile.userId, userId),
-        }),
-        this.db.query.userMedicalConditions.findMany({
-          where: eq(userMedicalConditions.userId, userId),
-          with: { condition: true },
-        }),
-        this.db.query.healthRecords.findMany({
-          where: eq(healthRecords.userId, userId),
-          orderBy: [desc(healthRecords.createdAt)],
-          limit: 6,
-          with: { files: true },
-        }),
-        this.db.query.patientCareIds.findFirst({
-          where: eq(patientCareIds.userId, userId),
-        }),
-        this.db.query.emergencyContacts.findMany({
-          where: eq(emergencyContacts.userId, userId),
-          orderBy: emergencyContacts.createdAt,
-        }),
-        this.wallet.getForDashboard(userId),
-      ]);
+    const [
+      profile,
+      conditions,
+      recentRecords,
+      careId,
+      contacts,
+      wallet,
+      recentProofs,
+    ] = await Promise.all([
+      this.db.query.userMedicalProfile.findFirst({
+        where: eq(userMedicalProfile.userId, userId),
+      }),
+      this.db.query.userMedicalConditions.findMany({
+        where: eq(userMedicalConditions.userId, userId),
+        with: { condition: true },
+      }),
+      this.db.query.healthRecords.findMany({
+        where: eq(healthRecords.userId, userId),
+        orderBy: [desc(healthRecords.createdAt)],
+        limit: 6,
+        with: { files: true },
+      }),
+      this.db.query.patientCareIds.findFirst({
+        where: eq(patientCareIds.userId, userId),
+      }),
+      this.db.query.emergencyContacts.findMany({
+        where: eq(emergencyContacts.userId, userId),
+        orderBy: emergencyContacts.createdAt,
+      }),
+      this.wallet.getForDashboard(userId),
+      this.db.query.clinicalProofs.findMany({
+        where: eq(clinicalProofs.userId, userId),
+        orderBy: [desc(clinicalProofs.createdAt)],
+        limit: 5,
+        columns: {
+          id: true,
+          proofType: true,
+          claimData: true,
+          status: true,
+          generatedAt: true,
+          createdAt: true,
+        },
+      }),
+    ]);
 
     const now = Date.now();
     const refreshedRecords = await Promise.all(
@@ -112,6 +133,7 @@ export class DashboardService {
       careId: careId ?? null,
       emergencyContacts: contacts,
       wallet,
+      recentClinicalProofs: recentProofs,
     };
   }
 }

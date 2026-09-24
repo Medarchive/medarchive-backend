@@ -56,7 +56,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
       statusCode === HttpStatus.NOT_FOUND && message.startsWith('Cannot ');
 
     if (!isRouteMiss) {
-      const is5xx = statusCode >= 500;
+      const is5xx = statusCode >= HttpStatus.INTERNAL_SERVER_ERROR;
       const payload: Record<string, unknown> = {
         event: 'exception.caught',
         requestId,

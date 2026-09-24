@@ -20,6 +20,7 @@ import {
   ApiBody,
   ApiConsumes,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
   getSchemaPath,
@@ -207,7 +208,11 @@ export class ProviderProfileController {
     @Param('patientId') patientId: string,
     @Param('recordId') recordId: string,
   ) {
-    return this.providerProfileService.getApprovedRecord(user.sub, patientId, recordId);
+    return this.providerProfileService.getApprovedRecord(
+      user.sub,
+      patientId,
+      recordId,
+    );
   }
 
   @Get('record-requests')
@@ -215,7 +220,8 @@ export class ProviderProfileController {
   @ResponseMessage('Record requests fetched successfully')
   @ApiOperation({
     summary: 'List all record requests for this provider',
-    description: 'Paginated. Filter by status: PENDING | APPROVED | DECLINED | REVOKED. REVOKED rows show patient info but record is null.',
+    description:
+      'Paginated. Filter by status: PENDING | APPROVED | DECLINED | REVOKED. REVOKED rows show patient info but record is null.',
   })
   listRecordRequests(
     @CurrentUser() user: JwtPayload,
@@ -228,11 +234,67 @@ export class ProviderProfileController {
   @Version('1')
   @ResponseMessage('Record request fetched successfully')
   @ApiOperation({ summary: 'Get a single record request' })
-  getRecordRequest(
-    @CurrentUser() user: JwtPayload,
-    @Param('id') id: string,
-  ) {
+  getRecordRequest(@CurrentUser() user: JwtPayload, @Param('id') id: string) {
     return this.providerProfileService.getRecordRequest(user.sub, id);
+  }
+
+  @Post('clinical-proofs/:proofId/verify')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Clinical proof verified')
+  @ApiOperation({
+    summary: 'Verify a patient-shared clinical disclosure proof',
+    description:
+      'Requires an APPROVED record-request for this exact ' +
+      '(patient, proofType) pair — request one via ' +
+      'POST /provider/profile/record-requests with a proofType, and have ' +
+      'the patient approve it via PATCH /health-records/access-requests/:id ' +
+      'first. On success, returns exactly the fact the patient chose to ' +
+      'disclose (claimData) — never the underlying medical record.',
+  })
+  @ApiParam({ name: 'proofId', type: String })
+  @ApiResponse({
+    status: 200,
+    description: 'Proof cryptographically verified (valid may still be false).',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            message: { example: 'Clinical proof verified' },
+            data: {
+              example: {
+                valid: true,
+                proofType: 'BLOOD_GROUP',
+                claimData: { bloodGroup: 'O_POSITIVE' },
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Proof is still PENDING, or generation FAILED.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'No APPROVED record-request for this proof type from this patient.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No such proof.',
+    type: ApiErrorResponse,
+  })
+  verifyClinicalProof(
+    @CurrentUser() user: JwtPayload,
+    @Param('proofId') proofId: string,
+  ) {
+    return this.providerProfileService.verifyClinicalProof(user.sub, proofId);
   }
 
   @Get('activity')
