@@ -56,7 +56,24 @@ export class WalletController {
     schema: {
       allOf: [
         { $ref: getSchemaPath(ApiSuccessResponse) },
-        { properties: { message: { example: 'Wallet created successfully' } } },
+        {
+          properties: {
+            message: { example: 'Wallet created successfully' },
+            data: {
+              example: {
+                id: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+                userId: '018f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b',
+                address:
+                  'GNEWWALLETADDRESSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+                network: 'TESTNET',
+                label: null,
+                verifiedAt: '2026-07-23T10:00:00.000Z',
+                createdAt: '2026-07-23T10:00:00.000Z',
+                updatedAt: '2026-07-23T10:00:00.000Z',
+              },
+            },
+          },
+        },
       ],
     },
   })

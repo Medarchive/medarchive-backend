@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
+  ApiBody,
   ApiOperation,
   ApiParam,
   ApiResponse,
@@ -85,6 +86,64 @@ export class ClinicalProofsController {
       'generate a proof of a false claim. Once accepted, a ZK proof is ' +
       'generated in the background (poll GET /clinical-proofs/:id, or check ' +
       'GET /dashboard, for status) without exposing your full record.',
+  })
+  @ApiBody({
+    type: CreateClinicalProofDto,
+    examples: {
+      BLOOD_GROUP: {
+        summary: 'BLOOD_GROUP',
+        description: "Must match your medical profile's bloodGroup exactly.",
+        value: {
+          proofType: 'BLOOD_GROUP',
+          claimData: { bloodGroup: 'O_POSITIVE' },
+        },
+      },
+      GENOTYPE: {
+        summary: 'GENOTYPE',
+        description: "Must match your medical profile's genotype exactly.",
+        value: { proofType: 'GENOTYPE', claimData: { genotype: 'AA' } },
+      },
+      DIAGNOSIS_CATEGORY: {
+        summary: 'DIAGNOSIS_CATEGORY',
+        description:
+          'You must have at least one recorded condition in this category ' +
+          '— the specific condition is never revealed, only the category.',
+        value: {
+          proofType: 'DIAGNOSIS_CATEGORY',
+          claimData: { category: 'DISEASE' },
+        },
+      },
+      CHRONIC_CONDITION: {
+        summary: 'CHRONIC_CONDITION',
+        description:
+          'conditionId comes from GET /medical-conditions. hasCondition ' +
+          'can prove presence (true) or absence (false).',
+        value: {
+          proofType: 'CHRONIC_CONDITION',
+          claimData: {
+            conditionId: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+            hasCondition: true,
+          },
+        },
+      },
+      ALLERGY_CONFIRMATION: {
+        summary: 'ALLERGY_CONFIRMATION',
+        description: 'healthRecordId must be your own, of type ALLERGY.',
+        value: {
+          proofType: 'ALLERGY_CONFIRMATION',
+          claimData: { healthRecordId: '019fdd0c-216c-71e5-a515-0ba76eb5933d' },
+        },
+      },
+      PRIOR_PRESCRIPTION_PATTERN: {
+        summary: 'PRIOR_PRESCRIPTION_PATTERN',
+        description:
+          'Matched against your own PRESCRIPTION/MEDICATION records’ drugClass.',
+        value: {
+          proofType: 'PRIOR_PRESCRIPTION_PATTERN',
+          claimData: { drugClass: 'antihistamines' },
+        },
+      },
+    },
   })
   @ApiResponse({
     status: 201,

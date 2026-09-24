@@ -147,11 +147,73 @@ export class ProviderProfileController {
   @Version('1')
   @HttpCode(HttpStatus.CREATED)
   @ResponseMessage('Record access request sent successfully')
-  @ApiOperation({ summary: 'Request access to patient records' })
-  @ApiBody({ type: CreateRecordRequestDto })
+  @ApiOperation({
+    summary: 'Request access to patient records or a clinical proof',
+    description:
+      'Provide exactly one patient identifier (patientId, careId, or ' +
+      'email), then at most one of recordId (a specific health record) or ' +
+      'proofType (a clinical disclosure proof type — see GET ' +
+      '/clinical-proofs/types for the list). Provide neither to request by ' +
+      'requestType label alone. The patient approves/declines via PATCH ' +
+      '/health-records/access-requests/:id.',
+  })
+  @ApiBody({
+    type: CreateRecordRequestDto,
+    examples: {
+      byRecord: {
+        summary: 'Request a specific health record',
+        value: {
+          patientId: '018f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b',
+          recordId: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+          requestType: 'Lab results',
+        },
+      },
+      byProofType: {
+        summary: 'Request a clinical disclosure proof',
+        description:
+          'Patient approves this, generates the proof if they have not ' +
+          'already, then you verify it via POST /provider/profile/' +
+          'clinical-proofs/:proofId/verify.',
+        value: {
+          patientId: '018f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b',
+          proofType: 'BLOOD_GROUP',
+          requestType: 'Blood group confirmation',
+        },
+      },
+      byCareId: {
+        summary: 'Identify the patient by Care ID instead',
+        value: {
+          careId: 'MA-000001',
+          requestType: 'Lab results',
+        },
+      },
+    },
+  })
   @ApiResponse({
     status: 201,
-    schema: { allOf: [{ $ref: getSchemaPath(ApiSuccessResponse) }] },
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            data: {
+              example: {
+                id: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+                patientId: '018f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4b',
+                providerId: '018f1a2b-3c4d-5e6f-7a8b-9c0d1e2f3a4c',
+                recordId: null,
+                proofType: 'BLOOD_GROUP',
+                requestType: 'Blood group confirmation',
+                note: null,
+                status: 'PENDING',
+                createdAt: '2026-07-23T10:00:00.000Z',
+                updatedAt: '2026-07-23T10:00:00.000Z',
+              },
+            },
+          },
+        },
+      ],
+    },
   })
   @ApiResponse({
     status: 400,

@@ -9,14 +9,21 @@ export class CreateServiceOrderDto {
   @IsUUID()
   declare patientId: string;
 
-  @ApiProperty({ example: 'Consultation — General Checkup' })
+  @ApiProperty({
+    example: 'Consultation — General Checkup',
+    description: 'Human-readable description shown to the patient.',
+  })
   @IsString()
   @IsNotEmpty()
   declare description: string;
 
   @ApiProperty({
     example: '25.5000000',
-    description: 'Amount in USDC, up to 7 decimal places',
+    description:
+      'Amount in USDC, as a numeric string (never a float — avoids ' +
+      'floating-point precision loss). Up to 7 decimal places, matching ' +
+      "Stellar's native precision.",
+    pattern: '^\\d+(\\.\\d{1,7})?$',
   })
   @IsNumberString({ no_symbols: false })
   declare amount: string;
