@@ -3,6 +3,7 @@ import {
   ConflictException,
   Injectable,
   Inject,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -39,6 +40,8 @@ const horizonUrls: Record<string, string> = {
 
 @Injectable()
 export class WalletService {
+  private readonly logger = new Logger(WalletService.name);
+
   constructor(
     @Inject(DB) private readonly db: Database,
     @Inject(CACHE_MANAGER) private readonly cache: Cache,
@@ -78,7 +81,14 @@ export class WalletService {
       })
       .returning();
 
-    this.stellar.fundNewAccount(keypair.publicKey()).catch(() => {});
+    this.stellar
+      .fundNewAccount(keypair.publicKey())
+      .then(() => this.stellar.establishUsdcTrustline(keypair.secret()))
+      .catch((err: unknown) => {
+        this.logger.warn(
+          `Failed to establish USDC trustline for new wallet ${keypair.publicKey()}: ${String(err)} — will retry via the 5-minute sweep`,
+        );
+      });
 
     this.activityLog.log(userId, 'WALLET_LINKED', {
       address: keypair.publicKey(),

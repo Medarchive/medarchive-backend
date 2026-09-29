@@ -95,6 +95,20 @@ export class StellarService {
     return result.hash;
   }
 
+  private extractHorizonResultCodes(err: unknown): string[] {
+    if (err && typeof err === 'object' && 'response' in err) {
+      const response = (
+        err as {
+          response?: {
+            data?: { extras?: { result_codes?: { operations?: string[] } } };
+          };
+        }
+      ).response;
+      return response?.data?.extras?.result_codes?.operations ?? [];
+    }
+    return [];
+  }
+
   async payUsdc(
     secret: string,
     destination: string,
@@ -121,8 +135,29 @@ export class StellarService {
       .build();
 
     tx.sign(keypair);
-    const result = await server.submitTransaction(tx);
-    return result.hash;
+
+    try {
+      const result = await server.submitTransaction(tx);
+      return result.hash;
+    } catch (err) {
+      const codes = this.extractHorizonResultCodes(err);
+      if (codes.includes('op_underfunded'))
+        throw new BadRequestException(
+          'Your custodial wallet has insufficient USDC balance for this payment.',
+        );
+      if (codes.includes('op_no_trust'))
+        throw new BadRequestException(
+          'Your custodial wallet does not have a USDC trustline yet. Please wait a few minutes and try again.',
+        );
+      if (codes.includes('op_no_destination'))
+        throw new BadRequestException(
+          "The provider's wallet account does not exist on the network.",
+        );
+      this.logger.warn(
+        `payUsdc failed for ${keypair.publicKey()}: ${codes.join(', ') || String(err)}`,
+      );
+      throw err;
+    }
   }
 
   async fundTestnetAccountViaFriendbot(publicKey: string): Promise<void> {
