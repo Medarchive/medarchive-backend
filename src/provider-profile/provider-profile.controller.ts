@@ -300,6 +300,65 @@ export class ProviderProfileController {
     return this.providerProfileService.getRecordRequest(user.sub, id);
   }
 
+  @Get('patients/:patientId/clinical-proofs')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @ResponseMessage('Clinical proofs fetched successfully')
+  @ApiOperation({
+    summary: "List a patient's clinical proofs available to verify",
+    description:
+      'Returns only proofs whose type you have an APPROVED record-request ' +
+      'for from this patient — request one via POST /provider/profile/' +
+      'record-requests with a proofType first. claimData is withheld here; ' +
+      'pick a proofId from this list, then call POST /provider/profile/' +
+      'clinical-proofs/:proofId/verify to cryptographically verify it and ' +
+      'receive the disclosed claimData.',
+  })
+  @ApiParam({ name: 'patientId', type: String })
+  @ApiResponse({
+    status: 200,
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            message: { example: 'Clinical proofs fetched successfully' },
+            data: {
+              example: [
+                {
+                  id: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+                  proofType: 'BLOOD_GROUP',
+                  status: 'GENERATED',
+                  generatedAt: '2026-07-23T10:00:05.000Z',
+                  createdAt: '2026-07-23T10:00:00.000Z',
+                },
+              ],
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — provider role required.',
+    type: ApiErrorResponse,
+  })
+  listPatientClinicalProofs(
+    @CurrentUser() user: JwtPayload,
+    @Param('patientId') patientId: string,
+  ) {
+    return this.providerProfileService.listPatientClinicalProofs(
+      user.sub,
+      patientId,
+    );
+  }
+
   @Post('clinical-proofs/:proofId/verify')
   @Version('1')
   @HttpCode(HttpStatus.OK)

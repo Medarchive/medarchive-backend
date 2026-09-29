@@ -294,6 +294,78 @@ export class ServiceOrdersController {
     return this.serviceOrders.getPaymentIntent(user.sub, id);
   }
 
+  @Post(':id/payment/pay')
+  @Version('1')
+  @HttpCode(HttpStatus.OK)
+  @Roles('PATIENT')
+  @ResponseMessage('Payment submitted successfully')
+  @ApiOperation({
+    summary: 'Pay a service order from a custodial wallet',
+    description:
+      'Only for wallets created via POST /wallet/create — Med Archive ' +
+      'holds their key, so it builds, signs, and submits the USDC payment ' +
+      'on your behalf, then marks the order PAID immediately. If you ' +
+      'linked your own wallet instead (POST /wallet), Med Archive never ' +
+      'holds its key — use GET /service-orders/:id/payment-intent and ' +
+      'POST /service-orders/:id/payment/verify instead.',
+  })
+  @ApiParam({ name: 'id', type: String, description: 'Service order UUID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Payment submitted and verified; order is now PAID.',
+    schema: {
+      allOf: [
+        { $ref: getSchemaPath(ApiSuccessResponse) },
+        {
+          properties: {
+            message: { example: 'Payment submitted successfully' },
+            data: {
+              example: {
+                id: '019fdd0c-216c-71e5-a515-0ba76eb5933d',
+                reference: 'ORD-1A2B3C4D',
+                status: 'PAID',
+                txHash:
+                  'a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2',
+                paidAt: '2026-07-23T10:05:00.000Z',
+                updatedAt: '2026-07-23T10:05:00.000Z',
+              },
+            },
+          },
+        },
+      ],
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description:
+      'Order is not PENDING, you have no wallet linked, your wallet is not ' +
+      'custodial (no stored key to sign with), or your wallet has no USDC ' +
+      'trustline yet.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 403,
+    description:
+      'Forbidden — PATIENT role required, or you are not the order’s patient.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'No such order.',
+    type: ApiErrorResponse,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'This order was already paid by a concurrent request.',
+    type: ApiErrorResponse,
+  })
+  payWithCustodialWallet(
+    @CurrentUser() user: JwtPayload,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.serviceOrders.payWithCustodialWallet(user.sub, id);
+  }
+
   @Post(':id/payment/verify')
   @Version('1')
   @HttpCode(HttpStatus.OK)

@@ -51,7 +51,9 @@ describe('ServiceOrdersService', () => {
     verifyPayment: jest.Mock;
     hasUsdcTrustline: jest.Mock;
     findPaymentForOrder: jest.Mock;
+    payUsdc: jest.Mock;
   };
+  let walletEncryption: { decrypt: jest.Mock };
   let activityLog: { log: jest.Mock };
   let notifications: { push: jest.Mock };
   let service: ServiceOrdersService;
@@ -62,12 +64,15 @@ describe('ServiceOrdersService', () => {
       verifyPayment: jest.fn(),
       hasUsdcTrustline: jest.fn(),
       findPaymentForOrder: jest.fn(),
+      payUsdc: jest.fn(),
     };
+    walletEncryption = { decrypt: jest.fn() };
     activityLog = { log: jest.fn() };
     notifications = { push: jest.fn() };
     service = new ServiceOrdersService(
       db as never,
       stellar as never,
+      walletEncryption as never,
       activityLog as never,
       notifications as never,
     );
@@ -230,6 +235,69 @@ describe('ServiceOrdersService', () => {
         service.verifyPayment('patient-1', 'order-1', 'tx-1'),
       ).rejects.toThrow('already been used');
       expect(stellar.verifyPayment).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('payWithCustodialWallet', () => {
+    const order = {
+      id: 'order-1',
+      patientId: 'patient-1',
+      providerId: 'provider-1',
+      providerWalletAddress: 'GPROVIDER',
+      reference: 'ORD-ABCD1234',
+      amount: '25.0000000',
+      status: 'PENDING',
+    };
+
+    it('signs and submits the payment for a custodial wallet, then marks PAID', async () => {
+      db.query.serviceOrders.findFirst.mockResolvedValue(order);
+      db.query.wallets.findFirst.mockResolvedValue({
+        address: 'GPATIENT',
+        encryptedSecret: 'iv:tag:cipher',
+      });
+      stellar.hasUsdcTrustline.mockResolvedValue(true);
+      walletEncryption.decrypt.mockReturnValue('SPATIENTSECRET');
+      stellar.payUsdc.mockResolvedValue('tx-custodial-1');
+      mockUpdateReturning(db, {
+        ...order,
+        status: 'PAID',
+        txHash: 'tx-custodial-1',
+      });
+
+      const updated = await service.payWithCustodialWallet(
+        'patient-1',
+        'order-1',
+      );
+
+      expect(walletEncryption.decrypt).toHaveBeenCalledWith('iv:tag:cipher');
+      expect(stellar.payUsdc).toHaveBeenCalledWith(
+        'SPATIENTSECRET',
+        'GPROVIDER',
+        '25.0000000',
+        'ORD-ABCD1234',
+      );
+      expect(updated.status).toBe('PAID');
+    });
+
+    it('rejects a non-custodial wallet (no stored key to sign with)', async () => {
+      db.query.serviceOrders.findFirst.mockResolvedValue(order);
+      db.query.wallets.findFirst.mockResolvedValue({
+        address: 'GPATIENT',
+        encryptedSecret: null,
+      });
+
+      await expect(
+        service.payWithCustodialWallet('patient-1', 'order-1'),
+      ).rejects.toThrow(BadRequestException);
+      expect(stellar.payUsdc).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the caller is not the order patient', async () => {
+      db.query.serviceOrders.findFirst.mockResolvedValue(order);
+
+      await expect(
+        service.payWithCustodialWallet('someone-else', 'order-1'),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 

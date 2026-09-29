@@ -12,6 +12,7 @@ import { DB } from '../db/db.module';
 import type { Database } from '../db/db.module';
 import { serviceOrders, users, wallets } from '../db/schema';
 import { StellarService } from '../wallet/stellar.service';
+import { WalletEncryptionService } from '../wallet/wallet-encryption.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
@@ -28,6 +29,7 @@ export class ServiceOrdersService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly stellar: StellarService,
+    private readonly walletEncryption: WalletEncryptionService,
     private readonly activityLog: ActivityLogService,
     private readonly notifications: NotificationsService,
   ) {}
@@ -143,6 +145,47 @@ export class ServiceOrdersService {
       amount: order.amount,
       memo: order.reference,
     };
+  }
+
+  async payWithCustodialWallet(patientUserId: string, id: string) {
+    const order = await this.findOne(patientUserId, id);
+    if (order.patientId !== patientUserId) throw new ForbiddenException();
+    if (order.status !== 'PENDING')
+      throw new BadRequestException('Service order is not awaiting payment');
+
+    const patientWallet = await this.db.query.wallets.findFirst({
+      where: eq(wallets.userId, patientUserId),
+    });
+    if (!patientWallet)
+      throw new BadRequestException('Link a Stellar wallet before paying');
+    if (!patientWallet.encryptedSecret)
+      throw new BadRequestException(
+        'Your wallet is not custodial — Med Archive does not hold its key. ' +
+          'Build, sign, and submit the payment yourself via GET ' +
+          '/service-orders/:id/payment-intent, then call POST ' +
+          '/service-orders/:id/payment/verify.',
+      );
+
+    const hasTrustline = await this.stellar.hasUsdcTrustline(
+      patientWallet.address,
+    );
+    if (!hasTrustline)
+      throw new BadRequestException(
+        'Your Stellar wallet does not have a USDC trustline yet. Please wait a few minutes and try again.',
+      );
+
+    const secret = this.walletEncryption.decrypt(patientWallet.encryptedSecret);
+    const txHash = await this.stellar.payUsdc(
+      secret,
+      order.providerWalletAddress,
+      order.amount,
+      order.reference,
+    );
+
+    const updated = await this.applyVerifiedPayment(order, txHash);
+    if (!updated) throw new ConflictException('Service order was already paid');
+
+    return updated;
   }
 
   async verifyPayment(patientUserId: string, id: string, txHash: string) {

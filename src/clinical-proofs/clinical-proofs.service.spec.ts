@@ -207,6 +207,30 @@ describe('ClinicalProofsService', () => {
     });
   });
 
+  describe('findAllForProvider', () => {
+    it('returns an empty array without querying when no proof types are given', async () => {
+      const result = await service.findAllForProvider('patient-1', []);
+
+      expect(result).toEqual([]);
+      expect(db.query.clinicalProofs.findMany).not.toHaveBeenCalled();
+    });
+
+    it('queries proofs for the patient scoped to the given proof types', async () => {
+      db.query.clinicalProofs.findMany.mockResolvedValue([
+        { id: 'proof-1', proofType: ClinicalProofType.BLOOD_GROUP },
+      ]);
+
+      const result = await service.findAllForProvider('patient-1', [
+        ClinicalProofType.BLOOD_GROUP,
+      ]);
+
+      expect(result).toEqual([
+        { id: 'proof-1', proofType: ClinicalProofType.BLOOD_GROUP },
+      ]);
+      expect(db.query.clinicalProofs.findMany).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('verify', () => {
     it('throws NotFoundException when the proof does not exist', async () => {
       db.query.clinicalProofs.findFirst.mockResolvedValue(undefined);

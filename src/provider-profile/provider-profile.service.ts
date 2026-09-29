@@ -28,6 +28,7 @@ import type { CreateRecordRequestDto } from './dto/create-record-request.dto';
 import { NotificationsService } from '../notifications/notifications.service';
 import { ActivityLogService } from '../activity-log/activity-log.service';
 import { ClinicalProofsService } from '../clinical-proofs/clinical-proofs.service';
+import { ClinicalProofType } from '../clinical-proofs/dto/create-clinical-proof.dto';
 import { buildMeta, SortOrder } from '../common/dto/pagination.dto';
 import type { PaginationDto } from '../common/dto/pagination.dto';
 import type { ListRecordRequestsDto } from './dto/list-record-requests.dto';
@@ -414,6 +415,27 @@ export class ProviderProfileService {
 
     const now = Date.now();
     return this.refreshFiles(record, now);
+  }
+
+  async listPatientClinicalProofs(providerId: string, patientId: string) {
+    const approved = await this.db.query.providerRecordRequests.findMany({
+      where: and(
+        eq(providerRecordRequests.providerId, providerId),
+        eq(providerRecordRequests.patientId, patientId),
+        eq(providerRecordRequests.status, 'APPROVED'),
+      ),
+      columns: { proofType: true },
+    });
+
+    const proofTypes = [
+      ...new Set(
+        approved
+          .map((r) => r.proofType)
+          .filter((t): t is NonNullable<typeof t> => t !== null),
+      ),
+    ] as ClinicalProofType[];
+
+    return this.clinicalProofs.findAllForProvider(patientId, proofTypes);
   }
 
   async verifyClinicalProof(providerId: string, proofId: string) {

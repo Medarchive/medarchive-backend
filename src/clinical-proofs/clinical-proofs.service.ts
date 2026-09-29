@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { verify } from '@zk-kit/poseidon-proof';
 import type { PoseidonProof } from '@zk-kit/poseidon-proof';
 import { DB } from '../db/db.module';
@@ -77,6 +77,24 @@ export class ClinicalProofsService {
   async findAll(userId: string) {
     return this.db.query.clinicalProofs.findMany({
       where: eq(clinicalProofs.userId, userId),
+      orderBy: (t, { desc }) => [desc(t.createdAt)],
+    });
+  }
+
+  async findAllForProvider(patientId: string, proofTypes: ClinicalProofType[]) {
+    if (proofTypes.length === 0) return [];
+    return this.db.query.clinicalProofs.findMany({
+      where: and(
+        eq(clinicalProofs.userId, patientId),
+        inArray(clinicalProofs.proofType, proofTypes),
+      ),
+      columns: {
+        id: true,
+        proofType: true,
+        status: true,
+        generatedAt: true,
+        createdAt: true,
+      },
       orderBy: (t, { desc }) => [desc(t.createdAt)],
     });
   }

@@ -95,6 +95,36 @@ export class StellarService {
     return result.hash;
   }
 
+  async payUsdc(
+    secret: string,
+    destination: string,
+    amount: string,
+    memo: string,
+  ): Promise<string> {
+    const server = new Horizon.Server(this.networkUrl);
+    const keypair = Keypair.fromSecret(secret);
+    const sourceAccount = await server.loadAccount(keypair.publicKey());
+
+    const tx = new TransactionBuilder(sourceAccount, {
+      fee: '100',
+      networkPassphrase: this.networkPassphrase,
+    })
+      .addMemo(Memo.text(memo))
+      .addOperation(
+        Operation.payment({
+          destination,
+          asset: this.getUsdcAsset(),
+          amount,
+        }),
+      )
+      .setTimeout(30)
+      .build();
+
+    tx.sign(keypair);
+    const result = await server.submitTransaction(tx);
+    return result.hash;
+  }
+
   async fundTestnetAccountViaFriendbot(publicKey: string): Promise<void> {
     if (env().STELLAR_NETWORK !== 'testnet') {
       throw new BadRequestException(
