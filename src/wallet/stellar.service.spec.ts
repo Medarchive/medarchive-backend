@@ -261,6 +261,89 @@ describe('StellarService', () => {
     });
   });
 
+  describe('payUsdc', () => {
+    const destination = Keypair.random().publicKey();
+
+    it('signs and submits a payment operation for USDC', async () => {
+      const patient = Keypair.random();
+      const submitTransaction = jest
+        .fn<(tx: Transaction) => Promise<{ hash: string }>>()
+        .mockResolvedValue({ hash: 'payment-tx-hash' });
+      mockServerImplementation({
+        loadAccount: jest
+          .fn()
+          .mockResolvedValue(new Account(patient.publicKey(), '100')),
+        submitTransaction,
+      });
+
+      const hash = await service.payUsdc(
+        patient.secret(),
+        destination,
+        '25.0000000',
+        'ORD-ABCD1234',
+      );
+
+      expect(hash).toBe('payment-tx-hash');
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      const submittedTx: Transaction = submitTransaction.mock.calls[0][0];
+      const op = submittedTx.operations[0];
+      expect(op.type).toBe('payment');
+    });
+
+    it('surfaces an insufficient-balance Horizon error as a clear 400', async () => {
+      const patient = Keypair.random();
+      mockServerImplementation({
+        loadAccount: jest
+          .fn()
+          .mockResolvedValue(new Account(patient.publicKey(), '100')),
+        submitTransaction: jest.fn().mockRejectedValue({
+          response: {
+            data: {
+              extras: { result_codes: { operations: ['op_underfunded'] } },
+            },
+          },
+        }),
+      });
+
+      await expect(
+        service.payUsdc(patient.secret(), destination, '25.0000000', 'ORD-1'),
+      ).rejects.toThrow('insufficient USDC balance');
+    });
+
+    it('surfaces a missing-trustline Horizon error as a clear 400', async () => {
+      const patient = Keypair.random();
+      mockServerImplementation({
+        loadAccount: jest
+          .fn()
+          .mockResolvedValue(new Account(patient.publicKey(), '100')),
+        submitTransaction: jest.fn().mockRejectedValue({
+          response: {
+            data: { extras: { result_codes: { operations: ['op_no_trust'] } } },
+          },
+        }),
+      });
+
+      await expect(
+        service.payUsdc(patient.secret(), destination, '25.0000000', 'ORD-1'),
+      ).rejects.toThrow('does not have a USDC trustline');
+    });
+
+    it('rethrows an unrecognized Horizon error unchanged', async () => {
+      const patient = Keypair.random();
+      const rawError = new Error('unexpected horizon failure');
+      mockServerImplementation({
+        loadAccount: jest
+          .fn()
+          .mockResolvedValue(new Account(patient.publicKey(), '100')),
+        submitTransaction: jest.fn().mockRejectedValue(rawError),
+      });
+
+      await expect(
+        service.payUsdc(patient.secret(), destination, '25.0000000', 'ORD-1'),
+      ).rejects.toBe(rawError);
+    });
+  });
+
   describe('fundTestnetAccountViaFriendbot', () => {
     const originalFetch = global.fetch;
 

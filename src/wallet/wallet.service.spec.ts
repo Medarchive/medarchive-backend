@@ -32,7 +32,7 @@ describe('WalletService', () => {
   let activityLog: { log: jest.Mock };
   let mail: { sendWalletLinked: jest.Mock };
   let walletEncryption: { encrypt: jest.Mock };
-  let stellar: { fundNewAccount: jest.Mock };
+  let stellar: { fundNewAccount: jest.Mock; establishUsdcTrustline: jest.Mock };
   let provisionQueue: { add: jest.Mock };
   let service: WalletService;
 
@@ -44,7 +44,10 @@ describe('WalletService', () => {
     walletEncryption = {
       encrypt: jest.fn().mockReturnValue('encrypted-secret'),
     };
-    stellar = { fundNewAccount: jest.fn().mockResolvedValue(undefined) };
+    stellar = {
+      fundNewAccount: jest.fn().mockResolvedValue(undefined),
+      establishUsdcTrustline: jest.fn().mockResolvedValue('trustline-tx'),
+    };
     provisionQueue = { add: jest.fn().mockResolvedValue(undefined) };
     service = new WalletService(
       db as never,
@@ -102,6 +105,28 @@ describe('WalletService', () => {
         expect.objectContaining({ custodial: true }),
       );
       expect(mail.sendWalletLinked).toHaveBeenCalled();
+    });
+
+    it('establishes a USDC trustline immediately after funding, without blocking the response', async () => {
+      db.query.wallets.findFirst.mockResolvedValue(undefined);
+      db.query.users.findFirst.mockResolvedValue(null);
+      mockInsertReturning(db, {
+        id: 'wallet-1',
+        userId: 'user-1',
+        address: 'GABC123',
+        network: 'TESTNET',
+        encryptedSecret: 'encrypted-secret',
+        verifiedAt: new Date(),
+      });
+
+      await service.create('user-1');
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(stellar.fundNewAccount).toHaveBeenCalled();
+      expect(stellar.establishUsdcTrustline).toHaveBeenCalledWith(
+        expect.any(String),
+      );
     });
 
     it('does not fail wallet creation if the funding call rejects', async () => {

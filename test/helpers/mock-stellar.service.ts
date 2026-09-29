@@ -8,6 +8,7 @@ export function createStellarServiceMock() {
     accountExists: jest.fn().mockResolvedValue(true),
     hasUsdcTrustline: jest.fn().mockResolvedValue(true),
     establishUsdcTrustline: jest.fn().mockResolvedValue('trustline-tx-hash'),
+    payUsdc: jest.fn().mockResolvedValue('payment-tx-hash'),
     fundTestnetAccountViaFriendbot: jest.fn().mockResolvedValue(undefined),
     verifyPayment: jest.fn().mockResolvedValue({ valid: true }),
     findPaymentForOrder: jest.fn().mockResolvedValue(null),
